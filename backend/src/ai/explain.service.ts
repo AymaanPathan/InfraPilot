@@ -5,9 +5,6 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-/**
- * System prompt for explaining pod failures
- */
 const POD_FAILURE_PROMPT = `You are a Kubernetes expert helping developers understand pod failures.
 
 Your job is to:
