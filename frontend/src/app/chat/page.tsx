@@ -15,7 +15,9 @@ import {
   Network,
   Settings,
   TrendingUp,
+  Brain,
 } from "lucide-react";
+import { ExplanationDisplay } from "@/components/container/Explanationcomponents";
 
 export default function ChatPage() {
   const { thread, isLoading } = useTamboThread();
@@ -32,6 +34,15 @@ export default function ChatPage() {
       console.log("Message ID:", lastMessage?.id);
       console.log("Content:", lastMessage?.content);
       console.log("Has rendered component:", !!lastMessage?.renderedComponent);
+
+      // PHASE E: Check for explanation
+      if (lastMessage?.content) {
+        const hasExplanation = lastMessage.content.some(
+          (c: any) => c.type === "tool_result" && c.content?.explanation,
+        );
+        console.log("Has explanation:", hasExplanation);
+      }
+
       if (lastMessage?.renderedComponent) {
         console.log(
           "Component type:",
@@ -101,7 +112,6 @@ export default function ChatPage() {
 
       console.groupEnd();
 
-      // Show user-friendly error
       alert(
         `Error: ${err?.message || "Unknown error occurred"}. Check console for details.`,
       );
@@ -139,7 +149,7 @@ export default function ChatPage() {
           <div className="flex items-center gap-6">
             <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
               <Sparkles className="w-4 h-4 text-blue-400" />
-              <span>Powered by Tambo + MCP</span>
+              <span>Powered by Tambo + AI Explanations</span>
             </div>
             <button className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
               <Settings className="w-5 h-5" />
@@ -307,8 +317,13 @@ function EmptyState({
       </h2>
 
       <p className="text-slate-400 mb-12 max-w-2xl text-lg leading-relaxed">
-        I can help you monitor resources, view logs, check health, analyze
-        metrics, and diagnose issues using natural language.
+        I can monitor resources, view logs, check health, analyze metrics,
+        diagnose issues,
+        <span className="text-blue-400 font-semibold">
+          {" "}
+          and explain what's wrong
+        </span>{" "}
+        using AI.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl w-full">
@@ -340,7 +355,7 @@ function EmptyState({
       <div className="mt-12 flex items-center gap-2 text-xs text-slate-500">
         <Sparkles className="w-4 h-4" />
         <span>
-          Powered by AI • Real-time monitoring • Natural language interface
+          Powered by AI • Real-time monitoring • Automatic issue detection
         </span>
       </div>
     </div>
@@ -355,6 +370,15 @@ function MessageBubble({
   isLatest: boolean;
 }) {
   const isUser = message.role === "user";
+
+  // PHASE E: Extract explanation from message content
+  const explanation = message.content?.find(
+    (c: any) => c.type === "tool_result" && c.content?.explanation,
+  )?.content?.explanation;
+
+  const autoExplained = message.content?.find(
+    (c: any) => c.type === "tool_result" && c.content?.autoExplained,
+  )?.content?.autoExplained;
 
   return (
     <div
@@ -389,8 +413,26 @@ function MessageBubble({
           </div>
         )}
 
+        {/* PHASE E: Render AI explanation if available */}
+        {explanation && !isUser && (
+          <div className="mt-6 animate-fade-in">
+            <div className="flex items-center gap-2 mb-3 text-sm text-blue-300">
+              <Brain className="w-4 h-4" />
+              <span className="font-semibold">
+                {autoExplained ? "AI Auto-Analysis" : "AI Explanation"}
+              </span>
+            </div>
+            <ExplanationDisplay
+              explanation={explanation}
+              type="info"
+              showIcon={false}
+              className="bg-slate-900/50"
+            />
+          </div>
+        )}
+
         {/* Enhanced debug info for latest assistant message */}
-        {isLatest && !isUser && (
+        {isLatest && !isUser && process.env.NODE_ENV === "development" && (
           <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700/30 text-xs font-mono">
             <div className="text-slate-400 mb-2 font-semibold">
               🔍 Debug Info
@@ -412,19 +454,21 @@ function MessageBubble({
                 </span>
               </div>
               <div>
+                Explanation:{" "}
+                <span
+                  className={
+                    explanation ? "text-emerald-400" : "text-slate-600"
+                  }
+                >
+                  {explanation ? "✓ Present" : "✗ None"}
+                </span>
+              </div>
+              <div>
                 Content blocks:{" "}
                 <span className="text-amber-400">
                   {message.content?.length || 0}
                 </span>
               </div>
-              {message.content?.[0] && (
-                <div>
-                  First block type:{" "}
-                  <span className="text-purple-400">
-                    {message.content[0].type}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -511,7 +555,7 @@ function ChatInput({
           <kbd className="px-2 py-1 bg-slate-800 rounded text-slate-400">
             Enter
           </kbd>{" "}
-          to send
+          to send • AI will auto-explain issues
         </p>
       </div>
     </div>

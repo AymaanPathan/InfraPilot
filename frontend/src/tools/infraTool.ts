@@ -1,14 +1,13 @@
 import type { TamboTool } from "@tambo-ai/react";
 
 /**
- * Infrastructure Command Tool - Alternative Implementation
+ * Infrastructure Command Tool - ENHANCED with AI Explanations (Phase E)
  *
- * If render() is not in the context parameter, it might be:
- * 1. Accessed via `this.render()`
- * 2. Not needed at all - just return the component info
- * 3. Need to import render separately
- *
- * Let's try returning the structured output that Tambo expects
+ * Now supports:
+ * - Auto-detection of pod issues
+ * - AI-powered explanations
+ * - Triage reports
+ * - Error analysis
  */
 export const infraCommandTool: TamboTool<{
   input: string;
@@ -16,7 +15,7 @@ export const infraCommandTool: TamboTool<{
 }> = {
   name: "infra_command",
   description:
-    "Execute Kubernetes operations using natural language. Handles pod listing, logs, events, deployments, services, and more via MCP backend.",
+    "Execute Kubernetes operations using natural language with AI-powered explanations. Handles pod listing, logs, events, deployments, services, health monitoring, and automatic issue detection via MCP backend.",
 
   inputSchema: {
     type: "object",
@@ -24,11 +23,12 @@ export const infraCommandTool: TamboTool<{
       input: {
         type: "string",
         description:
-          "Natural language command (e.g., 'show all pods', 'get logs for api-server', 'why is payment-service crashing?')",
+          "Natural language command (e.g., 'show all pods', 'get logs for api-server', 'why is payment-service crashing?', 'analyze cluster health')",
       },
       explain: {
         type: "boolean",
-        description: "Whether to include AI explanation of the results",
+        description:
+          "Whether to include AI explanation of the results (auto-detects if not specified)",
         default: false,
       },
     },
@@ -44,13 +44,22 @@ export const infraCommandTool: TamboTool<{
       },
       props: {
         type: "object",
-        description: "Props to pass to the component",
+        description:
+          "Props to pass to the component (includes data + optional explanation)",
+      },
+      explanation: {
+        type: "string",
+        description:
+          "AI-generated explanation (if auto-triggered or requested)",
+      },
+      autoExplained: {
+        type: "boolean",
+        description: "Whether explanation was auto-generated",
       },
     },
     required: ["componentName", "props"],
   },
 
-  // Try 1: Return structured data that matches outputSchema
   async tool({ input, explain = false }) {
     console.log("🟢 infra_command invoked", { input, explain });
 
@@ -59,7 +68,6 @@ export const infraCommandTool: TamboTool<{
       if (!input || typeof input !== "string" || input.trim().length === 0) {
         console.error("❌ Invalid input:", input);
 
-        // Return structured output matching outputSchema
         return {
           componentName: "ErrorDisplay",
           props: {
@@ -126,6 +134,8 @@ export const infraCommandTool: TamboTool<{
         console.log("✅ Parsed JSON:", {
           ok: data.ok,
           component: data.ui?.componentName,
+          hasExplanation: !!data.meta?.explanation,
+          autoExplained: data.meta?.autoExplained,
         });
       } catch (parseError) {
         console.error("❌ JSON parse failed:", parseError);
@@ -168,12 +178,28 @@ export const infraCommandTool: TamboTool<{
       console.log("✅ Success - returning component:", {
         componentName: data.ui.componentName,
         propsKeys: Object.keys(data.ui.props),
+        explanation: data.meta?.explanation ? "present" : "none",
       });
+
+      // ENHANCEMENT: Include explanation in props if available
+      const props = {
+        ...data.ui.props,
+        // Add explanation metadata if present
+        ...(data.meta?.explanation && {
+          explanation: data.meta.explanation,
+          autoExplained: data.meta.autoExplained || false,
+        }),
+      };
 
       // Return the component info - Tambo will handle rendering
       return {
         componentName: data.ui.componentName,
-        props: data.ui.props,
+        props,
+        // Also return at top level for tool output schema
+        ...(data.meta?.explanation && {
+          explanation: data.meta.explanation,
+          autoExplained: data.meta.autoExplained,
+        }),
       };
     } catch (error) {
       console.error("💥 Unexpected error:", error);

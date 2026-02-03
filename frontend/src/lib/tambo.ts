@@ -66,6 +66,14 @@ import { ErrorDisplay, errorDisplaySchema } from "../components/ErrorDisplay";
 import { z } from "zod";
 import { MetricsPanel } from "@/components/container/metricsPanel";
 
+// ============================================================================
+// PHASE E: Import AI Explanation Components
+// ============================================================================
+import {
+  ExplanationDisplay,
+  TriageReport,
+} from "@/components/container/Explanationcomponents";
+
 const podGridSchema = z.object({
   pods: z.array(
     z.object({
@@ -93,6 +101,9 @@ const podGridSchema = z.object({
     }),
   ),
   namespace: z.string().optional(),
+  // PHASE E: Add explanation support
+  explanation: z.string().optional(),
+  autoExplained: z.boolean().optional(),
 });
 
 const logsViewerSchema = z.object({
@@ -102,6 +113,9 @@ const logsViewerSchema = z.object({
   container: z.string().optional(),
   showTimestamps: z.boolean().optional(),
   highlightErrors: z.boolean().optional(),
+  // PHASE E: Add explanation support
+  explanation: z.string().optional(),
+  autoExplained: z.boolean().optional(),
 });
 
 const metricsPanelSchema = z.object({
@@ -123,11 +137,50 @@ const metricsPanelSchema = z.object({
   status: z.string().optional(),
 });
 
+// ============================================================================
+// PHASE E: Explanation Component Schemas
+// ============================================================================
+const explanationDisplaySchema = z.object({
+  explanation: z.string(),
+  type: z.enum(["info", "warning", "error", "success"]).optional(),
+  title: z.string().optional(),
+  showIcon: z.boolean().optional(),
+  className: z.string().optional(),
+});
+
+const triageReportSchema = z.object({
+  report: z.string(),
+  issues: z.array(
+    z.object({
+      type: z.string(),
+      severity: z.enum(["critical", "warning", "info"]),
+      podName: z.string(),
+      namespace: z.string(),
+      description: z.string(),
+      metrics: z
+        .object({
+          restarts: z.number(),
+          age: z.string().optional(),
+          status: z.string().optional(),
+        })
+        .optional(),
+    }),
+  ),
+  summary: z
+    .object({
+      total: z.number(),
+      issuesFound: z.number(),
+      critical: z.number(),
+      warnings: z.number(),
+    })
+    .optional(),
+});
+
 /**
- * Tambo Components Configuration
+ * Tambo Components Configuration - ENHANCED with AI Explanations (Phase E)
  *
  * All Kubernetes visualization components that Tambo can render.
- * Each component is AI-aware and will be automatically selected based on user intent.
+ * Now includes AI explanation components for automatic issue detection and analysis.
  */
 export const components: TamboComponent[] = [
   // ============================================================================
@@ -139,6 +192,24 @@ export const components: TamboComponent[] = [
       "Displays error messages from backend or MCP server with helpful hints and retry options. Use when any operation fails or backend is unavailable.",
     component: ErrorDisplay,
     propsSchema: errorDisplaySchema,
+  },
+
+  // ============================================================================
+  // PHASE E: AI EXPLANATION COMPONENTS
+  // ============================================================================
+  {
+    name: "ExplanationDisplay",
+    description:
+      "Displays AI-generated explanations with markdown support, syntax highlighting, and severity-based color coding. Use for showing pod failure analysis, log error explanations, event timeline analysis, or any AI-generated insights. Automatically triggered when issues are detected.",
+    component: ExplanationDisplay,
+    propsSchema: explanationDisplaySchema,
+  },
+  {
+    name: "TriageReport",
+    description:
+      "Comprehensive health triage dashboard showing detected issues, severity classification, summary metrics, and actionable recommendations. Displays critical issues first, then warnings. Use when showing cluster-wide health assessment or when multiple pod issues are detected.",
+    component: TriageReport,
+    propsSchema: triageReportSchema,
   },
 
   // ============================================================================
@@ -161,7 +232,7 @@ export const components: TamboComponent[] = [
   {
     name: "PodHealthMonitor",
     description:
-      "Real-time pod health monitoring with health scores, restart counts, readiness status, and resource usage per pod. Includes filtering by status and health. Use when user asks to 'monitor pod health', 'show pod health scores', 'which pods are unhealthy', 'pod monitoring dashboard', or 'track pod status'.",
+      "Real-time pod health monitoring with health scores, restart counts, readiness status, and resource usage per pod. Includes filtering by status and health. Automatically triggers AI explanations when unhealthy pods are detected. Use when user asks to 'monitor pod health', 'show pod health scores', 'which pods are unhealthy', 'pod monitoring dashboard', or 'track pod status'.",
     component: PodHealthMonitor,
     propsSchema: podHealthMonitorSchema,
   },
@@ -172,14 +243,14 @@ export const components: TamboComponent[] = [
   {
     name: "PodGrid",
     description:
-      "Displays a grid of Kubernetes pods with status badges, namespace info, and filtering capabilities. Shows pod name, status (Running/Pending/CrashLoopBackOff), restarts, age, and node assignment. Use when user asks to 'show pods', 'list pods', 'what pods are running', or similar.",
+      "Displays a grid of Kubernetes pods with status badges, namespace info, and filtering capabilities. Shows pod name, status (Running/Pending/CrashLoopBackOff), restarts, age, and node assignment. Automatically triggers AI triage report when issues are detected. Use when user asks to 'show pods', 'list pods', 'what pods are running', or similar.",
     component: PodGrid,
     propsSchema: podGridSchema,
   },
   {
     name: "LogsViewer",
     description:
-      "A component for viewing and analyzing pod logs. Supports live log streaming, error highlighting, container selection for multi-container pods, and AI-powered log explanation. Includes copy and download functionality. Use when user asks for 'logs', 'show logs for [pod]', or 'what are the errors in [pod]'.",
+      "A component for viewing and analyzing pod logs. Supports live log streaming, error highlighting, container selection for multi-container pods, and AI-powered log explanation. Automatically analyzes logs for errors and provides remediation suggestions. Includes copy and download functionality. Use when user asks for 'logs', 'show logs for [pod]', or 'what are the errors in [pod]'.",
     component: LogsViewer,
     propsSchema: logsViewerSchema,
   },
@@ -232,7 +303,7 @@ export const components: TamboComponent[] = [
   {
     name: "EventsTimeline",
     description:
-      "Chronological timeline of Kubernetes events for pods or other resources. Shows warnings, errors, and normal events with timestamps and reasons. Useful for debugging. Use when user asks 'what happened to [pod]', 'show events', 'pod history', or 'why did [pod] fail'.",
+      "Chronological timeline of Kubernetes events for pods or other resources. Shows warnings, errors, and normal events with timestamps and reasons. Automatically triggers AI analysis when warning events are present. Useful for debugging. Use when user asks 'what happened to [pod]', 'show events', 'pod history', or 'why did [pod] fail'.",
     component: EventsTimeline,
     propsSchema: eventsTimelineSchema,
   },
@@ -299,7 +370,8 @@ export const components: TamboComponent[] = [
  * - Intent recognition (user input → MCP tool selection)
  * - MCP tool execution (get_pods, get_logs, restart_deployment, etc.)
  * - Result formatting for components
- * - AI explanations when needed
+ * - AI explanations when needed (PHASE E: Auto-detection + generation)
+ * - Issue detection and triage reports
  *
  * Tools are registered with Tambo via the infraCommandTool in /tools/infraTool.ts
  */
