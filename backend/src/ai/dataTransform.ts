@@ -1,10 +1,9 @@
 import logger from "../utils/logger";
 
 /**
- * Data Transformer - FIXED VERSION
+ * Data Transformer - FIXED VERSION with ResourceUsageChart support
  *
  * Converts raw MCP responses into component-ready data structures.
- * Includes all necessary transformers including events.
  */
 
 /**
@@ -35,16 +34,13 @@ export function transformPodsList(mcpResponse: any): any {
     logger.info("Transformed pods list", {
       inputCount: rawPods.length,
       outputCount: pods.length,
-      withMetrics: pods.filter((p: any) => p.metrics).length,
     });
 
     return { pods };
   } catch (error) {
     logger.error("Failed to transform pods list", {
       error: error instanceof Error ? error.message : String(error),
-      mcpResponse,
     });
-
     return { pods: [] };
   }
 }
@@ -82,9 +78,7 @@ export function transformPodLogs(
   } catch (error) {
     logger.error("Failed to transform pod logs", {
       error: error instanceof Error ? error.message : String(error),
-      podName,
     });
-
     return {
       podName,
       namespace,
@@ -96,11 +90,9 @@ export function transformPodLogs(
 
 /**
  * Transform get_pod_events MCP response to EventsTimeline props
- * FIXED: Handles various event response formats
  */
 export function transformPodEvents(mcpResponse: any, podName?: string): any {
   try {
-    // Handle different response formats
     const rawEvents = Array.isArray(mcpResponse)
       ? mcpResponse
       : mcpResponse.events || mcpResponse.items || [];
@@ -119,7 +111,6 @@ export function transformPodEvents(mcpResponse: any, podName?: string): any {
     logger.info("Transformed pod events", {
       podName,
       eventCount: events.length,
-      warningCount: events.filter((e: any) => e.type === "Warning").length,
     });
 
     return {
@@ -129,9 +120,7 @@ export function transformPodEvents(mcpResponse: any, podName?: string): any {
   } catch (error) {
     logger.error("Failed to transform pod events", {
       error: error instanceof Error ? error.message : String(error),
-      podName,
     });
-
     return {
       events: [],
       podName,
@@ -156,7 +145,6 @@ export function transformPodDescription(mcpResponse: any): any {
 
     logger.info("Transformed pod description", {
       podName: pod.metadata?.name,
-      status: pod.status?.phase,
     });
 
     return {
@@ -170,7 +158,6 @@ export function transformPodDescription(mcpResponse: any): any {
     logger.error("Failed to transform pod description", {
       error: error instanceof Error ? error.message : String(error),
     });
-
     return {
       totalPods: 0,
       runningPods: 0,
@@ -218,6 +205,173 @@ export function transformMetrics(metricsData: any): any {
 }
 
 /**
+ * Transform resource usage for ResourceUsageChart component
+ *
+ * FIXED: Matches the exact schema expected by ResourceUsageChart:
+ * {
+ *   namespace?: string;
+ *   resources: Array<{
+ *     name: string;
+ *     type: "cpu" | "memory" | "storage" | "network";
+ *     current: number;    // ← MUST be number
+ *     limit: number;      // ← MUST be number
+ *     unit: string;
+ *     trend?: "up" | "down" | "stable";
+ *   }>;
+ *   timestamp?: string;
+ * }
+ */
+export function transformResourceUsage(mcpResponse: any): any {
+  try {
+    const resources = [];
+
+    // CPU
+    if (mcpResponse.resources) {
+      for (const resource of mcpResponse.resources) {
+        if (resource.name === "CPU") {
+          // Parse "2.5 cores" or similar to get the number
+          const current = parseFloat(resource.usage?.split(" ")[0] || "0");
+          const limit = 100; // Default limit (can be from node capacity)
+
+          resources.push({
+            name: "CPU",
+            type: "cpu" as const,
+            current,
+            limit,
+            unit: "cores",
+            trend: determineTrend(resource.percent),
+          });
+        } else if (resource.name === "Memory") {
+          // Parse "4.2 GB" to get number
+          const current = parseFloat(resource.usage?.split(" ")[0] || "0");
+          const limit = 100;
+
+          resources.push({
+            name: "Memory",
+            type: "memory" as const,
+            current,
+            limit,
+            unit: "GiB",
+            trend: determineTrend(resource.percent),
+          });
+        }
+      }
+    }
+
+    // Use data from cpuData/memoryData arrays if available
+    if (mcpResponse.cpuData && mcpResponse.cpuData.length > 0) {
+      const latestCpu = mcpResponse.cpuData[mcpResponse.cpuData.length - 1];
+      const hasCpu = resources.some((r) => r.type === "cpu");
+
+      if (!hasCpu && latestCpu) {
+        resources.push({
+          name: "CPU",
+          type: "cpu" as const,
+          current: latestCpu.value || 0,
+          limit: 100,
+          unit: "%",
+          trend: determineTrendFromArray(mcpResponse.cpuData),
+        });
+      }
+    }
+
+    if (mcpResponse.memoryData && mcpResponse.memoryData.length > 0) {
+      const latestMemory =
+        mcpResponse.memoryData[mcpResponse.memoryData.length - 1];
+      const hasMemory = resources.some((r) => r.type === "memory");
+
+      if (!hasMemory && latestMemory) {
+        resources.push({
+          name: "Memory",
+          type: "memory" as const,
+          current: latestMemory.value || 0,
+          limit: 100,
+          unit: "%",
+          trend: determineTrendFromArray(mcpResponse.memoryData),
+        });
+      }
+    }
+
+    if (mcpResponse.storageData && mcpResponse.storageData.length > 0) {
+      const latestStorage =
+        mcpResponse.storageData[mcpResponse.storageData.length - 1];
+
+      resources.push({
+        name: "Storage",
+        type: "storage" as const,
+        current: latestStorage.value || 0,
+        limit: 100,
+        unit: "%",
+        trend: determineTrendFromArray(mcpResponse.storageData),
+      });
+    }
+
+    if (mcpResponse.networkData && mcpResponse.networkData.length > 0) {
+      const latestNetwork =
+        mcpResponse.networkData[mcpResponse.networkData.length - 1];
+
+      resources.push({
+        name: "Network",
+        type: "network" as const,
+        current: latestNetwork.rx || 0,
+        limit: 1000,
+        unit: "Mbps",
+        trend: "stable" as const,
+      });
+    }
+
+    logger.info("Transformed resource usage", {
+      resourceCount: resources.length,
+      namespace: mcpResponse.namespace,
+    });
+
+    return {
+      namespace: mcpResponse.namespace || "all",
+      resources,
+      timestamp: mcpResponse.timestamp || new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error("Failed to transform resource usage", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    // Return minimal valid structure
+    return {
+      namespace: "all",
+      resources: [],
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Determine trend from a percentage value
+ */
+function determineTrend(percent?: number): "up" | "down" | "stable" {
+  if (!percent) return "stable";
+  if (percent > 80) return "up";
+  if (percent < 30) return "down";
+  return "stable";
+}
+
+/**
+ * Determine trend from time series data
+ */
+function determineTrendFromArray(
+  data: Array<{ value: number }>,
+): "up" | "down" | "stable" {
+  if (!data || data.length < 2) return "stable";
+
+  const recent = data.slice(-3);
+  const first = recent[0].value;
+  const last = recent[recent.length - 1].value;
+
+  if (last > first + 10) return "up";
+  if (last < first - 10) return "down";
+  return "stable";
+}
+
+/**
  * Transform filtered pods response
  */
 export function transformFilteredPods(mcpResponse: any): any {
@@ -237,7 +391,6 @@ export function transformFilteredPods(mcpResponse: any): any {
     logger.info("Transformed filtered pods", {
       total: totalCount,
       filtered: filteredCount,
-      filters,
     });
 
     return {
@@ -250,7 +403,6 @@ export function transformFilteredPods(mcpResponse: any): any {
     logger.error("Failed to transform filtered pods", {
       error: error instanceof Error ? error.message : String(error),
     });
-
     return {
       pods: [],
       totalCount: 0,
@@ -260,57 +412,7 @@ export function transformFilteredPods(mcpResponse: any): any {
 }
 
 /**
- * Transform multi-pod metrics response
- */
-export function transformMultiPodMetrics(mcpResponse: any): any {
-  try {
-    const { metrics, totalPods, successfulPods, errors } = mcpResponse;
-
-    const transformedMetrics = metrics.map((m: any) => ({
-      podName: m.podName,
-      namespace: m.namespace,
-      cpu: {
-        usage: m.cpu.usage,
-        usagePercent: m.cpu.usagePercent,
-        cores: m.cpu.cores,
-      },
-      memory: {
-        usage: m.memory.usage,
-        usagePercent: m.memory.usagePercent,
-        bytes: m.memory.bytes,
-      },
-      restartCount: m.restartCount,
-      status: m.status,
-      containers: m.containers,
-    }));
-
-    logger.info("Transformed multi-pod metrics", {
-      total: totalPods,
-      successful: successfulPods,
-      errors: errors?.length || 0,
-    });
-
-    return {
-      metrics: transformedMetrics,
-      totalPods,
-      successfulPods,
-      errors,
-    };
-  } catch (error) {
-    logger.error("Failed to transform multi-pod metrics", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
-    return {
-      metrics: [],
-      totalPods: 0,
-      successfulPods: 0,
-    };
-  }
-}
-
-/**
- * Normalize pod status to match component enum
+ * Normalize pod status
  */
 function normalizeStatus(
   status: any,
@@ -355,7 +457,6 @@ function calculateAge(creationTimestamp?: string): string {
 
 /**
  * Main transformer - routes to correct transformer based on tool
- * FIXED: Added events transformer
  */
 export function transformMcpResponse(
   tool: string,
@@ -364,7 +465,7 @@ export function transformMcpResponse(
 ): any {
   switch (tool) {
     case "get_pods":
-    case "get_pod_health": // FIXED: Handle pod health tool
+    case "get_pod_health":
       return transformPodsList(mcpResponse);
 
     case "get_logs":
@@ -375,7 +476,7 @@ export function transformMcpResponse(
         args?.namespace,
       );
 
-    case "get_pod_events": // FIXED: Added events transformer
+    case "get_pod_events":
       return transformPodEvents(mcpResponse, args?.name || args?.pod_name);
 
     case "describe_pod":
@@ -384,14 +485,11 @@ export function transformMcpResponse(
     case "get_pod_metrics":
       return transformMetrics(mcpResponse);
 
-    case "get_multiple_pod_metrics":
-      return transformMultiPodMetrics(mcpResponse);
+    case "get_resource_usage":
+      return transformResourceUsage(mcpResponse);
 
     case "get_filtered_pods":
       return transformFilteredPods(mcpResponse);
-
-    case "get_container_metrics":
-      return transformMetrics(mcpResponse);
 
     default:
       logger.warn("No transformer for tool", { tool });

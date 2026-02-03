@@ -1,74 +1,69 @@
-"use client";
-
-import { AlertCircle, Server, RefreshCw } from "lucide-react";
 import { z } from "zod";
+import { AlertCircle, RefreshCw, ExternalLink } from "lucide-react";
 
 export const errorDisplaySchema = z.object({
   error: z.string(),
-  code: z.string().optional(),
   hint: z.string().optional(),
   details: z.string().optional(),
+  code: z.string().optional(),
+  action: z.string().optional(),
 });
 
-export type ErrorDisplayProps = z.infer<typeof errorDisplaySchema>;
+type ErrorDisplayProps = z.infer<typeof errorDisplaySchema>;
 
 export function ErrorDisplay({
   error,
-  code,
   hint,
   details,
+  code,
+  action = "Retry",
 }: ErrorDisplayProps) {
   return (
-    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 animate-fade-in">
+    <div className="my-4 p-6 bg-red-500/10 border border-red-500/30 rounded-xl">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
           <AlertCircle className="w-6 h-6 text-red-400" />
         </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-red-400 mb-2">{error}</h3>
 
-        <div className="flex-1 space-y-3">
-          <div>
-            <h3 className="text-lg font-semibold text-red-400 mb-1">
-              {code || "Error"}
-            </h3>
-            <p className="text-red-200">{error}</p>
-          </div>
-
-          {hint && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-              <p className="text-sm text-red-300">
-                <strong>Hint:</strong> {hint}
-              </p>
+          {code && (
+            <div className="mb-2 text-sm text-red-300/70">
+              Error Code:{" "}
+              <code className="bg-red-500/20 px-2 py-0.5 rounded">{code}</code>
             </div>
           )}
 
+          {hint && <p className="text-sm text-red-300/90 mb-3">💡 {hint}</p>}
+
           {details && (
-            <details className="text-xs text-red-300/70">
+            <details className="text-sm text-red-300/70 mb-3">
               <summary className="cursor-pointer hover:text-red-300">
-                Technical details
+                View Details
               </summary>
-              <pre className="mt-2 p-2 bg-black/20 rounded overflow-x-auto">
+              <pre className="mt-2 p-3 bg-red-950/30 rounded text-xs overflow-x-auto">
                 {details}
               </pre>
             </details>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-3 mt-4">
             <button
               onClick={() => window.location.reload()}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-sm text-red-300 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
-              Retry
+              {action}
             </button>
 
             <a
-              href="http://localhost:8000/health"
+              href="http://localhost:8000/api/ai/health"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-300 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
             >
-              <Server className="w-4 h-4" />
-              Check Backend
+              <ExternalLink className="w-4 h-4" />
+              Check Backend Status
             </a>
           </div>
         </div>

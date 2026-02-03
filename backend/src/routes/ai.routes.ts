@@ -3,7 +3,14 @@ import logger from "../utils/logger";
 import { generateStructuredPlan } from "../ai/Structured.planner.service";
 import { runTool } from "../ai/tool-runner";
 import { transformMcpResponse } from "../ai/dataTransform";
-import { explainLogs } from "../ai/explain.service";
+import {
+  explainPodFailure,
+  analyzeLogs,
+  analyzeEventTimeline,
+  assessPodHealth,
+  detectPodIssues,
+  generateTriageReport,
+} from "../ai/explain.service";
 import {
   getToolDefinition,
   getAllTools,
@@ -68,37 +75,6 @@ function buildErrorResponse(
     };
   }
 
-  // Check for invalid JSON from metrics API
-  if (
-    errorMessage.includes("invalid json response body") &&
-    errorMessage.includes("metrics.k8s.io")
-  ) {
-    return {
-      ok: false,
-      error: "Metrics Server Configuration Error",
-      code: "METRICS_SERVER_MALFORMED_RESPONSE",
-      hint: "The Metrics Server is installed but not responding correctly",
-      details:
-        "The Metrics Server returned an invalid response. This usually means it's not properly configured.",
-      solution: {
-        title: "Fix Metrics Server Configuration",
-        steps: [
-          "Check Metrics Server status: kubectl get pods -n kube-system | grep metrics-server",
-          "Check logs: kubectl logs -n kube-system deployment/metrics-server",
-          "Common fix for Docker Desktop - reinstall with insecure TLS:",
-          "kubectl delete -n kube-system deployment metrics-server",
-          "Download manifest and edit to add --kubelet-insecure-tls flag",
-          "Reapply the manifest",
-        ],
-      },
-      meta: {
-        ...context,
-        workaround:
-          "You can still view pod details, logs, and events without metrics",
-      },
-    };
-  }
-
   // Default error response
   return {
     ok: false,
@@ -111,9 +87,74 @@ function buildErrorResponse(
 }
 
 /**
+ * Check if auto-explanation should be triggered
+ */
+function shouldAutoExplain(tool: string, data: any): boolean {
+  // Auto-explain for pod-related queries
+  if (tool === "get_pods" || tool === "get_pod_health") {
+    const pods = Array.isArray(data) ? data : data.pods || [];
+    const issues = detectPodIssues(pods);
+    return issues.length > 0; // Has issues to explain
+  }
+
+  // Auto-explain for logs with errors
+  if (tool === "get_pod_logs") {
+    const logs = typeof data === "string" ? data : data.logs || "";
+    return /error|exception|fail|fatal|panic/i.test(logs);
+  }
+
+  // Auto-explain for events with warnings
+  if (tool === "get_pod_events") {
+    const events = Array.isArray(data) ? data : data.events || [];
+    return events.some((e:any) => e.type === "Warning");
+  }
+
+  return false;
+}
+
+/**
+ * Generate auto-explanation based on tool and data
+ */
+async function generateAutoExplanation(
+  tool: string,
+  data: any,
+  args: Record<string, any>,
+): Promise<string | undefined> {
+  try {
+    if (tool === "get_pods" || tool === "get_pod_health") {
+      const pods = Array.isArray(data) ? data : data.pods || [];
+      const issues = detectPodIssues(pods);
+
+      if (issues.length > 0) {
+        const report = await generateTriageReport(issues);
+        return report;
+      }
+    }
+
+    if (tool === "get_pod_logs") {
+      const logs = typeof data === "string" ? data : data.logs || "";
+      return await analyzeLogs(logs, args.name, args.namespace);
+    }
+
+    if (tool === "get_pod_events") {
+      const events = Array.isArray(data) ? data : data.events || [];
+      return await analyzeEventTimeline(events, args.name);
+    }
+
+    return undefined;
+  } catch (error) {
+    logger.error("Auto-explanation failed", {
+      tool,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
+  }
+}
+
+/**
  * POST /api/ai/command
  *
- * Main endpoint - converts natural language to tool execution
+ * Main endpoint - converts natural language to tool execution with AUTO-EXPLANATION
  */
 router.post("/command", async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -121,19 +162,15 @@ router.post("/command", async (req: Request, res: Response) => {
 
   console.log("\n========== /api/ai/command HANDLER START ==========");
   console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
-  console.log("📝 Input:", input);
-  console.log("🔍 Explain:", explain);
 
   try {
     // Validate input
     if (!input || typeof input !== "string" || input.trim().length === 0) {
-      console.error("❌ Invalid input:", input);
       return res.status(400).json({
         ok: false,
         error: "Invalid input",
         code: "INVALID_INPUT",
         hint: "Please provide a valid command string",
-        details: "Input must be a non-empty string",
       });
     }
 
@@ -142,7 +179,7 @@ router.post("/command", async (req: Request, res: Response) => {
       explain,
     });
 
-    // STEP 1: Generate structured plan from natural language
+    // STEP 1: Generate structured plan
     console.log("\n📋 STEP 1: Generating structured plan...");
     let plan;
     try {
@@ -150,12 +187,6 @@ router.post("/command", async (req: Request, res: Response) => {
       console.log("✅ Plan generated:", JSON.stringify(plan, null, 2));
     } catch (planError) {
       console.error("❌ Plan generation failed:", planError);
-      logger.error("Plan generation failed", {
-        error:
-          planError instanceof Error ? planError.message : String(planError),
-        input,
-      });
-
       return res.status(500).json({
         ok: false,
         error: "Failed to understand command",
@@ -168,44 +199,25 @@ router.post("/command", async (req: Request, res: Response) => {
 
     // STEP 2: Execute the tool
     console.log("\n🔧 STEP 2: Executing tool...");
-    console.log("   Tool:", plan.tool);
-    console.log("   Args:", JSON.stringify(plan.args, null, 2));
-
     let toolResult;
     try {
       toolResult = await runTool({
         tool: plan.tool,
         args: plan.args,
       });
-      console.log("✅ Tool executed:");
-      console.log("   Success:", toolResult.success);
-      console.log("   Execution time:", toolResult.executionTime, "ms");
-      if (!toolResult.success) {
-        console.error("   Error:", toolResult.error);
-      }
+      console.log("✅ Tool executed:", toolResult.success);
     } catch (toolError) {
-      console.error("❌ Tool execution failed:", toolError);
-      logger.error("Tool execution failed", {
-        tool: plan.tool,
-        error:
-          toolError instanceof Error ? toolError.message : String(toolError),
-      });
-
       const executionTime = Date.now() - startTime;
       const errorResponse = buildErrorResponse(toolError, {
         tool: plan.tool,
         args: plan.args,
         executionTime,
       });
-
       return res.status(500).json(errorResponse);
     }
 
-    // Check if tool execution failed
     if (!toolResult.success) {
-      console.error("❌ Tool returned failure");
       const executionTime = Date.now() - startTime;
-
       const errorResponse = buildErrorResponse(
         new Error(toolResult.error || "Tool execution failed"),
         {
@@ -214,7 +226,6 @@ router.post("/command", async (req: Request, res: Response) => {
           executionTime: toolResult.executionTime || executionTime,
         },
       );
-
       return res.status(500).json(errorResponse);
     }
 
@@ -228,50 +239,36 @@ router.post("/command", async (req: Request, res: Response) => {
         plan.args,
       );
       console.log("✅ Data transformed for component:", plan.ui_component);
-      console.log(
-        "   Data keys:",
-        Object.keys(transformedData || {}).join(", "),
-      );
     } catch (transformError) {
-      console.error("❌ Data transformation failed:", transformError);
-      logger.error("Data transformation failed", {
-        tool: plan.tool,
-        error:
-          transformError instanceof Error
-            ? transformError.message
-            : String(transformError),
-      });
-
-      // Continue with raw data if transformation fails
       transformedData = toolResult.data;
       console.log("⚠️ Using raw data instead");
     }
 
-    // STEP 4: Generate explanation if needed
-    let explanation = undefined;
-    if (plan.explain_needed || explain) {
-      console.log("\n💬 STEP 4: Generating explanation...");
-      try {
-        // Simple explanation based on tool type
-        if (plan.tool.includes("logs")) {
-          explanation = await explainLogs(
-            transformedData.logs || toolResult.data.logs || "",
-            plan.args.name,
-          );
-        } else if (plan.tool.includes("pod") && plan.tool.includes("events")) {
-          explanation = `Retrieved ${transformedData.events?.length || 0} events for pod ${plan.args.name}`;
-        } else {
-          explanation = `Successfully executed ${plan.tool}`;
-        }
-        console.log("✅ Explanation generated");
-      } catch (explainError) {
-        console.warn(
-          "⚠️ Explanation generation failed (non-critical):",
-          explainError,
-        );
-        // Explanation failure is non-critical
-        explanation = undefined;
+    // STEP 4: AUTO-EXPLANATION (PHASE E)
+    console.log("\n🧠 STEP 4: Checking for auto-explanation...");
+    let explanation: string | undefined;
+
+    // Check if auto-explanation should trigger
+    const shouldExplain =
+      plan.explain_needed ||
+      explain ||
+      shouldAutoExplain(plan.tool, toolResult.data);
+
+    if (shouldExplain) {
+      console.log("✅ Triggering auto-explanation");
+      explanation = await generateAutoExplanation(
+        plan.tool,
+        toolResult.data,
+        plan.args,
+      );
+
+      if (explanation) {
+        console.log("✅ Auto-explanation generated");
+      } else {
+        console.log("⚠️ Auto-explanation returned empty");
       }
+    } else {
+      console.log("ℹ️ No auto-explanation needed");
     }
 
     // Build response
@@ -288,11 +285,13 @@ router.post("/command", async (req: Request, res: Response) => {
         confidence: plan.confidence,
         executionTime,
         explanation,
+        autoExplained: !!explanation,
       },
     };
 
-    console.log("\n✅ SUCCESS! Sending response:");
+    console.log("\n✅ SUCCESS! Sending response");
     console.log("   Component:", response.ui.componentName);
+    console.log("   Has explanation:", !!explanation);
     console.log("   Total execution time:", executionTime, "ms");
     console.log("========== /api/ai/command HANDLER END ==========\n");
 
@@ -300,30 +299,17 @@ router.post("/command", async (req: Request, res: Response) => {
       tool: plan.tool,
       component: plan.ui_component,
       executionTime,
+      hasExplanation: !!explanation,
     });
 
     res.json(response);
   } catch (error) {
     const executionTime = Date.now() - startTime;
-
-    console.error("\n❌ UNEXPECTED ERROR in /api/ai/command:");
-    console.error("   Error:", error);
-    console.error(
-      "   Type:",
-      error instanceof Error ? error.constructor.name : typeof error,
-    );
-    console.error(
-      "   Message:",
-      error instanceof Error ? error.message : String(error),
-    );
-    if (error instanceof Error && error.stack) {
-      console.error("   Stack:", error.stack);
-    }
+    console.error("\n❌ UNEXPECTED ERROR:", error);
     console.log("========== /api/ai/command HANDLER END (ERROR) ==========\n");
 
-    logger.error("AI command failed with unexpected error", {
+    logger.error("AI command failed", {
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
       executionTime,
     });
 
@@ -331,16 +317,239 @@ router.post("/command", async (req: Request, res: Response) => {
       ok: false,
       error: "Internal server error",
       code: "INTERNAL_ERROR",
-      hint: "An unexpected error occurred. Check server logs for details.",
       details: error instanceof Error ? error.message : String(error),
     });
   }
 });
 
 /**
- * GET /api/ai/metrics-status
+ * POST /api/ai/explain/pod
  *
- * Check Metrics Server status with installation guidance
+ * Explain a specific pod failure
+ */
+router.post("/explain/pod", async (req: Request, res: Response) => {
+  const { name, namespace = "default" } = req.body;
+
+  try {
+    if (!name) {
+      return res.status(400).json({
+        ok: false,
+        error: "Pod name is required",
+      });
+    }
+
+    logger.info("Explaining pod failure", { name, namespace });
+
+    // Fetch pod data
+    const pod = await k8sClient.getPod(name, namespace);
+    const events = await k8sClient.getPodEvents(name, namespace);
+    const logs = await k8sClient.getPodLogs(name, namespace, {
+      tailLines: 100,
+    });
+
+    // Generate explanation
+    const explanation = await explainPodFailure({
+      name,
+      namespace,
+      status: pod.status,
+      events,
+      logs,
+      containers: pod.spec?.containers,
+      restarts: pod.status?.containerStatuses?.[0]?.restartCount || 0,
+      age: pod.metadata?.creationTimestamp
+        ? Math.floor(
+            (Date.now() - new Date(pod.metadata.creationTimestamp).getTime()) /
+              1000 /
+              60,
+          ) + "m"
+        : undefined,
+    });
+
+    res.json({
+      ok: true,
+      explanation,
+      pod: {
+        name,
+        namespace,
+        status: pod.status?.phase,
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to explain pod", {
+      name,
+      namespace,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    res.status(500).json({
+      ok: false,
+      error: "Failed to explain pod failure",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * POST /api/ai/explain/logs
+ *
+ * Analyze logs for errors
+ */
+router.post("/explain/logs", async (req: Request, res: Response) => {
+  const { name, namespace = "default", logs } = req.body;
+
+  try {
+    let logsToAnalyze = logs;
+
+    // If logs not provided, fetch them
+    if (!logsToAnalyze && name) {
+      logsToAnalyze = await k8sClient.getPodLogs(name, namespace, {
+        tailLines: 200,
+      });
+    }
+
+    if (!logsToAnalyze) {
+      return res.status(400).json({
+        ok: false,
+        error: "Logs are required (provide logs or pod name)",
+      });
+    }
+
+    const analysis = await analyzeLogs(logsToAnalyze, name, namespace);
+
+    res.json({
+      ok: true,
+      analysis,
+      pod: name ? { name, namespace } : undefined,
+    });
+  } catch (error) {
+    logger.error("Failed to analyze logs", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    res.status(500).json({
+      ok: false,
+      error: "Failed to analyze logs",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * POST /api/ai/explain/events
+ *
+ * Analyze event timeline
+ */
+router.post("/explain/events", async (req: Request, res: Response) => {
+  const { name, namespace = "default" } = req.body;
+
+  try {
+    if (!name) {
+      return res.status(400).json({
+        ok: false,
+        error: "Pod name is required",
+      });
+    }
+
+    const events = await k8sClient.getPodEvents(name, namespace);
+    const analysis = await analyzeEventTimeline(events, name);
+
+    res.json({
+      ok: true,
+      analysis,
+      eventCount: events.length,
+      pod: { name, namespace },
+    });
+  } catch (error) {
+    logger.error("Failed to analyze events", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    res.status(500).json({
+      ok: false,
+      error: "Failed to analyze events",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * POST /api/ai/health/assess
+ *
+ * Assess overall pod health across namespace
+ */
+router.post("/health/assess", async (req: Request, res: Response) => {
+  const { namespace } = req.body;
+
+  try {
+    const pods = await k8sClient.listPods(namespace);
+    const assessment = await assessPodHealth(pods);
+    const issues = detectPodIssues(pods);
+
+    res.json({
+      ok: true,
+      assessment,
+      issues,
+      summary: {
+        total: pods.length,
+        healthy: pods.length - issues.length,
+        critical: issues.filter((i) => i.severity === "critical").length,
+        warnings: issues.filter((i) => i.severity === "warning").length,
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to assess health", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    res.status(500).json({
+      ok: false,
+      error: "Failed to assess pod health",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * GET /api/ai/health/triage
+ *
+ * Get triage report for all pods
+ */
+router.get("/health/triage", async (req: Request, res: Response) => {
+  const { namespace } = req.query;
+
+  try {
+    const pods = await k8sClient.listPods(namespace as string | undefined);
+    const issues = detectPodIssues(pods);
+    const report = await generateTriageReport(issues);
+
+    res.json({
+      ok: true,
+      report,
+      issues,
+      summary: {
+        total: pods.length,
+        issuesFound: issues.length,
+        critical: issues.filter((i) => i.severity === "critical").length,
+        warnings: issues.filter((i) => i.severity === "warning").length,
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to generate triage report", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    res.status(500).json({
+      ok: false,
+      error: "Failed to generate triage report",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// ... (keep all existing routes)
+
+/**
+ * GET /api/ai/metrics-status
  */
 router.get("/metrics-status", async (req: Request, res: Response) => {
   try {
@@ -350,10 +559,6 @@ router.get("/metrics-status", async (req: Request, res: Response) => {
       ...status,
     });
   } catch (error) {
-    logger.error("Failed to check metrics status", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
     res.status(500).json({
       ok: false,
       error: "Failed to check metrics status",
@@ -364,13 +569,10 @@ router.get("/metrics-status", async (req: Request, res: Response) => {
 
 /**
  * GET /api/ai/tools
- *
- * List all available tools
  */
 router.get("/tools", (req: Request, res: Response) => {
   try {
     const tools = getAllTools();
-
     res.json({
       ok: true,
       tools: tools.map((t) => ({
@@ -382,10 +584,6 @@ router.get("/tools", (req: Request, res: Response) => {
       count: tools.length,
     });
   } catch (error) {
-    logger.error("Failed to list tools", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
     res.status(500).json({
       ok: false,
       error: "Failed to list tools",
@@ -396,23 +594,16 @@ router.get("/tools", (req: Request, res: Response) => {
 
 /**
  * GET /api/ai/suggestions
- *
- * Get smart command suggestions
  */
 router.get("/suggestions", (req: Request, res: Response) => {
   try {
     const suggestions = getSmartSuggestions();
-
     res.json({
       ok: true,
       suggestions,
       count: suggestions.length,
     });
   } catch (error) {
-    logger.error("Failed to get suggestions", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
     res.status(500).json({
       ok: false,
       error: "Failed to get suggestions",
@@ -423,8 +614,6 @@ router.get("/suggestions", (req: Request, res: Response) => {
 
 /**
  * GET /api/ai/health
- *
- * Check AI services health including metrics server
  */
 router.get("/health", async (req: Request, res: Response) => {
   try {
@@ -446,14 +635,18 @@ router.get("/health", async (req: Request, res: Response) => {
         metricsServer: {
           enabled: metricsAvailable,
           status: metricsAvailable ? "healthy" : "unavailable",
-          message: metricsAvailable
-            ? "Metrics Server is available"
-            : "Metrics Server is not installed or not responding",
         },
         explanation: {
           enabled: !!process.env.GROQ_API_KEY,
           model: "llama-3.3-70b-versatile",
           status: "healthy",
+          features: [
+            "pod_failure_analysis",
+            "log_analysis",
+            "event_timeline",
+            "health_assessment",
+            "auto_detection",
+          ],
         },
       },
       timestamp: new Date().toISOString(),
@@ -461,80 +654,9 @@ router.get("/health", async (req: Request, res: Response) => {
 
     res.json(health);
   } catch (error) {
-    logger.error("Health check failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
     res.status(500).json({
       ok: false,
       error: "Health check failed",
-      details: error instanceof Error ? error.message : String(error),
-    });
-  }
-});
-
-/**
- * POST /api/ai/validate
- *
- * Validate a command without executing
- */
-router.post("/validate", async (req: Request, res: Response) => {
-  const { input } = req.body;
-
-  try {
-    if (!input || typeof input !== "string") {
-      return res.status(400).json({
-        ok: false,
-        error: "Invalid input",
-        hint: "Provide a string input to validate",
-      });
-    }
-
-    // Generate plan but don't execute
-    const plan = await generateStructuredPlan(input);
-    const toolDef = getToolDefinition(plan.tool);
-
-    // Check if tool requires metrics
-    const requiresMetrics = plan.tool.includes("metrics");
-    let metricsWarning = undefined;
-
-    if (requiresMetrics) {
-      const metricsAvailable = await k8sClient.isMetricsServerAvailable();
-      if (!metricsAvailable) {
-        metricsWarning =
-          "This command requires Metrics Server, which is not available";
-      }
-    }
-
-    res.json({
-      ok: true,
-      valid: true,
-      plan: {
-        tool: plan.tool,
-        args: plan.args,
-        component: plan.ui_component,
-        confidence: plan.confidence,
-        explainNeeded: plan.explain_needed,
-      },
-      toolInfo: toolDef
-        ? {
-            name: toolDef.name,
-            description: toolDef.description,
-            category: toolDef.category,
-          }
-        : undefined,
-      warnings: metricsWarning ? [metricsWarning] : undefined,
-    });
-  } catch (error) {
-    logger.error("Command validation failed", {
-      input,
-      error: error instanceof Error ? error.message : String(error),
-    });
-
-    res.status(500).json({
-      ok: false,
-      valid: false,
-      error: "Validation failed",
       details: error instanceof Error ? error.message : String(error),
     });
   }

@@ -23,14 +23,26 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState("");
 
+  // Enhanced debugging
   useEffect(() => {
     if (thread?.messages?.length) {
       const lastMessage = thread.messages.at(-1);
-      console.log("🧠 LAST TAMBO MESSAGE:", lastMessage);
+      console.group("🧠 TAMBO MESSAGE DEBUG");
       console.log("Message role:", lastMessage?.role);
+      console.log("Message ID:", lastMessage?.id);
+      console.log("Content:", lastMessage?.content);
       console.log("Has rendered component:", !!lastMessage?.renderedComponent);
+      if (lastMessage?.renderedComponent) {
+        console.log(
+          "Component type:",
+          lastMessage.renderedComponent?.type?.name ||
+            typeof lastMessage.renderedComponent,
+        );
+      }
+      console.log("Full message object:", lastMessage);
+      console.groupEnd();
     }
-  }, [thread]);
+  }, [thread?.messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -44,39 +56,44 @@ export default function ChatPage() {
     setValue(input);
     setInputValue("");
 
-    console.log("📤 Sending message:", input);
-    console.log("Current thread state:", {
-      threadId: thread?.id,
-      messageCount: thread?.messages?.length,
-    });
+    console.group("📤 SENDING MESSAGE");
+    console.log("Input:", input);
+    console.log("Thread ID:", thread?.id);
+    console.log("Message count before:", thread?.messages?.length);
+    console.groupEnd();
 
     try {
-      // Try WITHOUT forceToolChoice first
       await submit({
         streamResponse: true,
-        // Removed forceToolChoice - let Tambo decide which tool to use
+        forceToolChoice: "infra_command",
       });
 
       console.log("✅ Submit successful");
     } catch (err: any) {
-      console.group("🚨 TAMBO STREAM FAILURE");
-      console.log("Error type:", err?.constructor?.name);
-      console.log("Message:", err?.message);
-      console.log("Full error:", err);
+      console.group("🚨 TAMBO SUBMISSION ERROR");
+      console.error("Error type:", err?.constructor?.name);
+      console.error("Message:", err?.message);
+      console.error("Full error:", err);
 
       if (err?.cause) {
-        console.log("Cause:", err.cause);
+        console.error("Cause:", err.cause);
       }
 
       if (err?.response) {
-        console.log("Response:", err.response);
+        console.error("Response:", err.response);
+        try {
+          const responseText = await err.response.text();
+          console.error("Response body:", responseText);
+        } catch (e) {
+          console.error("Could not read response body");
+        }
       }
 
       if (err?.stack) {
-        console.log("Stack trace:", err.stack);
+        console.error("Stack trace:", err.stack);
       }
 
-      console.log("Thread at error time:", {
+      console.error("Thread state at error:", {
         threadId: thread?.id,
         messageCount: thread?.messages?.length,
         lastMessage: thread?.messages?.at(-1),
@@ -372,12 +389,43 @@ function MessageBubble({
           </div>
         )}
 
-        {/* Debug info for latest message */}
-        {isLatest && !isUser && process.env.NODE_ENV === "development" && (
-          <div className="mt-2 p-2 bg-slate-900/50 rounded text-xs text-slate-500">
-            <div>Role: {message.role}</div>
-            <div>Has component: {message.renderedComponent ? "Yes" : "No"}</div>
-            <div>Content blocks: {message.content?.length || 0}</div>
+        {/* Enhanced debug info for latest assistant message */}
+        {isLatest && !isUser && (
+          <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700/30 text-xs font-mono">
+            <div className="text-slate-400 mb-2 font-semibold">
+              🔍 Debug Info
+            </div>
+            <div className="space-y-1 text-slate-500">
+              <div>
+                Role: <span className="text-blue-400">{message.role}</span>
+              </div>
+              <div>
+                Component:{" "}
+                <span
+                  className={
+                    message.renderedComponent
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }
+                >
+                  {message.renderedComponent ? "✓ Rendered" : "✗ Missing"}
+                </span>
+              </div>
+              <div>
+                Content blocks:{" "}
+                <span className="text-amber-400">
+                  {message.content?.length || 0}
+                </span>
+              </div>
+              {message.content?.[0] && (
+                <div>
+                  First block type:{" "}
+                  <span className="text-purple-400">
+                    {message.content[0].type}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
