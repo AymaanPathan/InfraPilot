@@ -122,6 +122,7 @@ async function executeSinglePodTool(
     case "get_pod_events":
       return await getPodEvents(args as any);
     case "get_pod":
+    case "describe_pod": // Support describe_pod in multi-pod execution
       return await getPodDetails(args as any);
     default:
       throw new Error(`Tool ${tool} not supported for multi-pod execution`);
@@ -525,6 +526,7 @@ export async function runTool(params: {
         break;
 
       case "get_pod":
+      case "describe_pod": // Support describe_pod tool (same implementation as get_pod)
         result = await k8sClient.getPod(
           params.args.name,
           params.args.namespace,
@@ -757,33 +759,39 @@ async function handleFilteredRequest(
  * Build cluster overview
  */
 async function buildClusterOverview(): Promise<any> {
-  const [nodes, pods, deployments, services] = await Promise.all([
-    k8sClient.listNodes(),
-    k8sClient.listPods(),
-    k8sClient.listDeployments(),
-    k8sClient.listServices(),
-  ]);
+  const [nodes, pods, deployments, services, version, uptimeHours] =
+    await Promise.all([
+      k8sClient.listNodes(),
+      k8sClient.listPods(),
+      k8sClient.listDeployments(),
+      k8sClient.listServices(),
+      k8sClient.getClusterVersion(),
+      k8sClient.getNodeUptimeHours(),
+    ]);
 
-  const runningPods = pods.filter((p: any) => p.status?.phase === "Running");
-  const failedPods = pods.filter(
-    (p: any) =>
-      p.status?.phase === "Failed" || p.status?.phase === "CrashLoopBackOff",
-  );
-  const pendingPods = pods.filter((p: any) => p.status?.phase === "Pending");
+  const runningPods = pods.filter((p) => p.status?.phase === "Running");
+  const failedPods = pods.filter((p) => p.status?.phase === "Failed");
+  const pendingPods = pods.filter((p) => p.status?.phase === "Pending");
 
   return {
     totalNodes: nodes.length,
-    activeNodes: nodes.filter((n: any) =>
+    activeNodes: nodes.filter((n) =>
       n.status?.conditions?.some(
-        (c: any) => c.type === "Ready" && c.status === "True",
+        (c) => c.type === "Ready" && c.status === "True",
       ),
     ).length,
+
     totalPods: pods.length,
     runningPods: runningPods.length,
     failedPods: failedPods.length,
     pendingPods: pendingPods.length,
+
     totalDeployments: deployments.length,
     totalServices: services.length,
+
+    version: version || "unknown",
+    uptimeHours: uptimeHours ?? null,
+
     timestamp: new Date().toISOString(),
   };
 }
@@ -794,6 +802,19 @@ async function buildClusterOverview(): Promise<any> {
  * This generates mock/simulated data for now.
  * In production, this should query the Metrics Server API.
  */
+
+function parseCpuToCores(cpu: string): number {
+  if (cpu.endsWith("m")) return parseInt(cpu) / 1000;
+  return parseFloat(cpu);
+}
+
+function parseMemoryToBytes(mem: string): number {
+  if (mem.endsWith("Ki")) return parseInt(mem) * 1024;
+  if (mem.endsWith("Mi")) return parseInt(mem) * 1024 * 1024;
+  if (mem.endsWith("Gi")) return parseInt(mem) * 1024 * 1024 * 1024;
+  return parseInt(mem);
+}
+
 async function buildResourceUsage(namespace?: string): Promise<any> {
   try {
     const pods = await k8sClient.listPods(namespace);

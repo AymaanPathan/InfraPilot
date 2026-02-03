@@ -443,6 +443,52 @@ After installation, wait 1-2 minutes for metrics to become available.`,
       return false;
     }
   }
+  // ============================================
+  // NODE METRICS
+  // ============================================
+
+  async getNodeMetrics(): Promise<any[] | null> {
+    try {
+      const available = await this.isMetricsServerAvailable();
+      if (!available) return null;
+
+      const res: any = await this.metricsApi.getNodeMetrics();
+      return res.items || [];
+    } catch (error) {
+      logger.error("Error getting node metrics", { error });
+      return null;
+    }
+  }
+  // ============================================
+  // VERSION
+  // ============================================
+
+  async getClusterVersion(): Promise<string | null> {
+    try {
+      const versionApi = this.kubeConfig.makeApiClient(k8s.VersionApi);
+      const v = await versionApi.getCode();
+      return v.gitVersion || null;
+    } catch (error) {
+      logger.error("Error getting cluster version", { error });
+      return null;
+    }
+  }
+  async getNodeUptimeHours(): Promise<number | null> {
+    try {
+      const nodes = await this.listNodes();
+      if (!nodes.length) return null;
+
+      const created = new Date(
+        nodes[0].metadata?.creationTimestamp || "",
+      ).getTime();
+
+      const diff = Date.now() - created;
+      return Math.floor(diff / (1000 * 60 * 60));
+    } catch (error) {
+      logger.error("Error calculating uptime", { error });
+      return null;
+    }
+  }
 }
 
 // Export singleton and factory

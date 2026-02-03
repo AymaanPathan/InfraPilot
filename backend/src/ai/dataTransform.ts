@@ -1,14 +1,5 @@
 import logger from "../utils/logger";
 
-/**
- * Data Transformer - FIXED VERSION with ResourceUsageChart support
- *
- * Converts raw MCP responses into component-ready data structures.
- */
-
-/**
- * Transform get_pods MCP response to PodGrid props
- */
 export function transformPodsList(mcpResponse: any): any {
   try {
     const rawPods = mcpResponse.pods || mcpResponse || [];
@@ -223,107 +214,32 @@ export function transformMetrics(metricsData: any): any {
  */
 export function transformResourceUsage(mcpResponse: any): any {
   try {
-    const resources = [];
-
-    // CPU
-    if (mcpResponse.resources) {
-      for (const resource of mcpResponse.resources) {
-        if (resource.name === "CPU") {
-          // Parse "2.5 cores" or similar to get the number
-          const current = parseFloat(resource.usage?.split(" ")[0] || "0");
-          const limit = 100; // Default limit (can be from node capacity)
-
-          resources.push({
-            name: "CPU",
-            type: "cpu" as const,
-            current,
-            limit,
-            unit: "cores",
-            trend: determineTrend(resource.percent),
-          });
-        } else if (resource.name === "Memory") {
-          // Parse "4.2 GB" to get number
-          const current = parseFloat(resource.usage?.split(" ")[0] || "0");
-          const limit = 100;
-
-          resources.push({
-            name: "Memory",
-            type: "memory" as const,
-            current,
-            limit,
-            unit: "GiB",
-            trend: determineTrend(resource.percent),
-          });
-        }
-      }
+    // ✅ If already transformed — pass through
+    if (
+      mcpResponse?.resources &&
+      mcpResponse.resources[0]?.current !== undefined
+    ) {
+      return mcpResponse;
     }
 
-    // Use data from cpuData/memoryData arrays if available
-    if (mcpResponse.cpuData && mcpResponse.cpuData.length > 0) {
-      const latestCpu = mcpResponse.cpuData[mcpResponse.cpuData.length - 1];
-      const hasCpu = resources.some((r) => r.type === "cpu");
+    const resources: any[] = [];
 
-      if (!hasCpu && latestCpu) {
-        resources.push({
-          name: "CPU",
-          type: "cpu" as const,
-          current: latestCpu.value || 0,
-          limit: 100,
-          unit: "%",
-          trend: determineTrendFromArray(mcpResponse.cpuData),
-        });
+    for (const r of mcpResponse.resources || []) {
+      // handle "1.23 cores"
+      let current = 0;
+      if (typeof r.usage === "string") {
+        current = parseFloat(r.usage);
       }
-    }
-
-    if (mcpResponse.memoryData && mcpResponse.memoryData.length > 0) {
-      const latestMemory =
-        mcpResponse.memoryData[mcpResponse.memoryData.length - 1];
-      const hasMemory = resources.some((r) => r.type === "memory");
-
-      if (!hasMemory && latestMemory) {
-        resources.push({
-          name: "Memory",
-          type: "memory" as const,
-          current: latestMemory.value || 0,
-          limit: 100,
-          unit: "%",
-          trend: determineTrendFromArray(mcpResponse.memoryData),
-        });
-      }
-    }
-
-    if (mcpResponse.storageData && mcpResponse.storageData.length > 0) {
-      const latestStorage =
-        mcpResponse.storageData[mcpResponse.storageData.length - 1];
 
       resources.push({
-        name: "Storage",
-        type: "storage" as const,
-        current: latestStorage.value || 0,
+        name: r.name,
+        type: r.name.toLowerCase(),
+        current,
         limit: 100,
-        unit: "%",
-        trend: determineTrendFromArray(mcpResponse.storageData),
+        unit: r.name === "CPU" ? "cores" : "GiB",
+        trend: determineTrend(r.percent),
       });
     }
-
-    if (mcpResponse.networkData && mcpResponse.networkData.length > 0) {
-      const latestNetwork =
-        mcpResponse.networkData[mcpResponse.networkData.length - 1];
-
-      resources.push({
-        name: "Network",
-        type: "network" as const,
-        current: latestNetwork.rx || 0,
-        limit: 1000,
-        unit: "Mbps",
-        trend: "stable" as const,
-      });
-    }
-
-    logger.info("Transformed resource usage", {
-      resourceCount: resources.length,
-      namespace: mcpResponse.namespace,
-    });
 
     return {
       namespace: mcpResponse.namespace || "all",
@@ -331,11 +247,7 @@ export function transformResourceUsage(mcpResponse: any): any {
       timestamp: mcpResponse.timestamp || new Date().toISOString(),
     };
   } catch (error) {
-    logger.error("Failed to transform resource usage", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
-    // Return minimal valid structure
+    logger.error("transformResourceUsage failed", error);
     return {
       namespace: "all",
       resources: [],

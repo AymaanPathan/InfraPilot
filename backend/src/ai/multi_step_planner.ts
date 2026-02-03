@@ -3,12 +3,14 @@ import logger from "../utils/logger";
 import { getToolSchemasForPlanner, TOOL_REGISTRY } from "./ToolsRegistry";
 
 /**
- * Multi-Step Planner Service - PHASE F
+ * Multi-Step Planner Service - PHASE F - FIXED
  *
  * Handles complex prompts with multiple intents:
  * - "show failing pods and their logs" → [get_filtered_pods, get_pod_logs]
- * - "compare cpu of payment and billing" → [get_pod_metrics, get_pod_metrics]
+ * - "compare cpu of payment and billing" → [describe_pod, describe_pod]
  * - "list pods and explain why they're failing" → [get_pods, explain_failures]
+ *
+ * CRITICAL FIX: Uses only valid tool names from TOOL_REGISTRY
  */
 
 const groq = new Groq({
@@ -42,6 +44,10 @@ export function buildMultiStepPrompt(): string {
 2. Detect if request needs MULTIPLE operations (multi-step)
 3. For multi-step: return array of steps with dependencies
 4. For single-step: return is_multi_step: false with single step
+5. **CRITICAL**: You MUST use ONLY the exact tool names from "AVAILABLE TOOLS" section below
+   - For pod metrics/CPU/memory: use "describe_pod" NOT "get_pod_metrics"
+   - For pod list: use "get_pods" NOT "list_pods"
+   - Tool names are case-sensitive and must match exactly
 
 # OUTPUT STRUCTURE
 
@@ -154,19 +160,37 @@ User: "compare cpu of payment and billing pods"
   "steps": [
     {
       "step_number": 1,
-      "tool": "get_pod_metrics",
+      "tool": "describe_pod",
       "args": {"name": "payment", "namespace": "default"},
       "description": "Get metrics for payment pod"
     },
     {
       "step_number": 2,
-      "tool": "get_pod_metrics",
+      "tool": "describe_pod",
       "args": {"name": "billing", "namespace": "default"},
       "description": "Get metrics for billing pod"
     }
   ],
   "merge_strategy": "compare",
   "final_component": "ComparisonView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+## Example 2b: Get CPU for single pod
+User: "get CPU usage for pod nginx"
+{
+  "is_multi_step": false,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "describe_pod",
+      "args": {"name": "nginx", "namespace": "default"},
+      "description": "Get pod details including CPU metrics"
+    }
+  ],
+  "merge_strategy": "sequential",
+  "final_component": "StatusSummary",
   "confidence": "high",
   "explanation_needed": false
 }
@@ -240,6 +264,27 @@ Detect multi-step when user says:
 - "get X then explain" → Sequential
 - "all X and their Y" → Loop + aggregate
 
+# COMMON QUERIES TO TOOL MAPPING
+
+**Pod Metrics/CPU/Memory queries:**
+- "get CPU usage" → use "describe_pod"
+- "show memory" → use "describe_pod"
+- "pod metrics" → use "describe_pod"
+- "resource usage" → use "get_resource_usage" (for cluster-wide) or "describe_pod" (for specific pod)
+
+**Pod listing queries:**
+- "show pods" → use "get_pods"
+- "list pods" → use "get_pods"
+- "failing pods" → use "get_filtered_pods"
+
+**Log queries:**
+- "get logs" → use "get_pod_logs"
+- "show logs" → use "get_pod_logs"
+
+**Event queries:**
+- "why is X crashing" → use "get_pod_events"
+- "what happened" → use "get_pod_events"
+
 Now parse the user's request:`;
 }
 
@@ -260,7 +305,7 @@ export async function generateMultiStepPlan(
 
     console.log("🚀 Calling Groq API for multi-step planning...");
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userInput },

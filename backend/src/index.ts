@@ -29,7 +29,6 @@ app.use((req, res, next) => {
 
 // Mount AI routes
 app.use("/api/ai", aiRouter);
-
 // ============================================
 // HEALTH & STATUS ENDPOINTS
 // ============================================

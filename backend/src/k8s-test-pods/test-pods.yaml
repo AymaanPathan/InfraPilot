@@ -1,0 +1,160 @@
+---
+# Namespace for error testing
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: error-testing
+
+---
+# Pod 1: CrashLoopBackOff - Container keeps crashing
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashloop-pod
+  namespace: error-testing
+  labels:
+    app: crashloop-test
+    error-type: crashloop
+spec:
+  containers:
+  - name: crash-container
+    image: busybox
+    command: ["sh", "-c", "echo 'Starting...' && sleep 5 && exit 1"]
+  restartPolicy: Always
+
+---
+# Pod 2: ImagePullBackOff - Invalid image name
+apiVersion: v1
+kind: Pod
+metadata:
+  name: imagepull-pod
+  namespace: error-testing
+  labels:
+    app: imagepull-test
+    error-type: imagepull
+spec:
+  containers:
+  - name: broken-image
+    image: nonexistent/invalid-image:v999
+    command: ["sleep", "3600"]
+
+---
+# Pod 3: Pending - Insufficient resources
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pending-pod
+  namespace: error-testing
+  labels:
+    app: pending-test
+    error-type: pending
+spec:
+  containers:
+  - name: resource-hungry
+    image: nginx
+    resources:
+      requests:
+        memory: "500Gi"  # Impossibly high memory request
+        cpu: "1000"      # Impossibly high CPU request
+
+---
+# Pod 4: OOMKilled - Out of Memory
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-pod
+  namespace: error-testing
+  labels:
+    app: oom-test
+    error-type: oom
+spec:
+  containers:
+  - name: memory-hog
+    image: polinux/stress
+    resources:
+      limits:
+        memory: "50Mi"
+      requests:
+        memory: "50Mi"
+    command: ["stress"]
+    args: ["--vm", "1", "--vm-bytes", "100M", "--vm-hang", "1"]
+
+---
+# Pod 5: Application Error - Logs show errors
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-error-pod
+  namespace: error-testing
+  labels:
+    app: app-error-test
+    error-type: application
+spec:
+  containers:
+  - name: error-logger
+    image: busybox
+    command: ["sh", "-c"]
+    args:
+    - |
+      while true; do
+        echo "$(date) INFO: Application running"
+        sleep 2
+        echo "$(date) ERROR: Database connection failed - timeout after 30s"
+        sleep 2
+        echo "$(date) WARN: Retrying connection..."
+        sleep 2
+        echo "$(date) ERROR: Failed to authenticate with auth service"
+        sleep 3
+        echo "$(date) FATAL: Critical error in payment processing"
+        sleep 5
+      done
+
+---
+# Pod 6: Unhealthy - Failing readiness probe
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unhealthy-pod
+  namespace: error-testing
+  labels:
+    app: unhealthy-test
+    error-type: unhealthy
+spec:
+  containers:
+  - name: unhealthy-app
+    image: nginx
+    readinessProbe:
+      httpGet:
+        path: /nonexistent
+        port: 9999
+      initialDelaySeconds: 5
+      periodSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /nonexistent
+        port: 9999
+      initialDelaySeconds: 10
+      periodSeconds: 5
+
+---
+# Deployment with some failing pods
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mixed-health-deployment
+  namespace: error-testing
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mixed-health
+  template:
+    metadata:
+      labels:
+        app: mixed-health
+    spec:
+      containers:
+      - name: app
+        image: nginx
+        ports:
+        - containerPort: 80
