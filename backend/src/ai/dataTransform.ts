@@ -1,15 +1,5 @@
 import logger from "../utils/logger";
 
-/**
- * Data Transformer - FIXED VERSION
- *
- * Converts raw MCP responses into component-ready data structures.
- * Includes all necessary transformers including events.
- */
-
-/**
- * Transform get_pods MCP response to PodGrid props
- */
 export function transformPodsList(mcpResponse: any): any {
   try {
     const rawPods = mcpResponse.pods || mcpResponse || [];
