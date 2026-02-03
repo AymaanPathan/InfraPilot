@@ -1,0 +1,118 @@
+# =========================
+# ROOT / GENERAL
+# =========================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+*.old
+*.orig
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files (do NOT commit secrets)
+.env
+.env.*
+!.env.example
+
+# Editor / IDE
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# FRONTEND (Next.js)
+# =========================
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.turbo/
+frontend/next-env.d.ts
+
+# Frontend logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# =========================
+# BACKEND (Node / Express)
+# =========================
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/.cache/
+
+# Backend logs
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+backend/pnpm-debug.log*
+
+# =========================
+# DATABASE / UPLOADS / STORAGE
+# =========================
+# If you store uploads locally
+backend/uploads/
+backend/public/uploads/
+
+# Mongo / DB dumps
+*.dump
+*.sqlite
+*.sqlite3
+
+# =========================
+# DOCKER (optional)
+# =========================
+# Ignore local docker runtime files if any
+docker-data/
+*.tar
+
+# =========================
+# TEST / COVERAGE
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# TYPESCRIPT CACHE
+# =========================
+*.tsbuildinfo
+
+# =========================
+# PYTHON / MCP / VENV
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Python build / dist
+build/
+dist/
+*.egg-info/
+
+# Pip / tooling cache
+pip-wheel-metadata/
+pip-log.txt
+.pip-cache/
+.cache/
+
+# Jupyter (just in case)
+.ipynb_checkpoints/
+
+# Python tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
