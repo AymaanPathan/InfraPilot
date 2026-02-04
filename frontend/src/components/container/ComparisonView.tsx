@@ -21,7 +21,7 @@ export function ComparisonView({
   items,
   comparisonType = "pods",
 }: ComparisonViewProps) {
-  if (!comparison || comparison.length < 2) {
+  if (!comparison || comparison?.length < 2) {
     return (
       <div className="bg-white border border-neutral-200 rounded-xl p-6">
         <p className="text-neutral-600">Comparison requires at least 2 items</p>
@@ -29,7 +29,7 @@ export function ComparisonView({
     );
   }
 
-  const itemsToCompare = items || comparison.map((c) => c.data);
+  const itemsToCompare = items || comparison?.map((c) => c?.data);
 
   if (comparisonType === "metrics") {
     return <MetricsComparison items={itemsToCompare} />;
@@ -65,50 +65,52 @@ function MetricsComparison({ items }: { items: any[] }) {
               <th className="text-left p-4 text-sm font-semibold text-neutral-900">
                 Metric
               </th>
-              {items.map((item, index) => (
+              {items?.map((item, index) => (
                 <th
                   key={index}
                   className="text-left p-4 text-sm font-semibold text-neutral-900"
                 >
-                  {item.pod?.name || item.name || `Item ${index + 1}`}
+                  {item?.pod?.name || item?.name || `Item ${index + 1}`}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200">
-            {metrics.map((metric, mIndex) => {
-              const values = items.map((item) => {
+            {metrics?.map((metric, mIndex) => {
+              const values = items?.map((item) => {
                 if (metric.key === "cpu") {
                   return (
-                    item.pod?.metrics?.cpu?.usagePercent ||
-                    item.metrics?.cpu?.usagePercent ||
+                    item?.pod?.metrics?.cpu?.usagePercent ||
+                    item?.metrics?.cpu?.usagePercent ||
                     0
                   );
                 }
                 if (metric.key === "memory") {
                   return (
-                    item.pod?.metrics?.memory?.usagePercent ||
-                    item.metrics?.memory?.usagePercent ||
+                    item?.pod?.metrics?.memory?.usagePercent ||
+                    item?.metrics?.memory?.usagePercent ||
                     0
                   );
                 }
                 if (metric.key === "restarts") {
-                  return item.pod?.restarts || item.restarts || 0;
+                  return item?.pod?.restarts || item?.restarts || 0;
                 }
                 return 0;
               });
 
-              const maxValue = Math.max(...values);
-              const minValue = Math.min(...values);
+              const maxValue = Math.max(...(values || [0]));
+              const minValue = Math.min(...(values || [0]));
 
               return (
                 <tr key={mIndex} className="hover:bg-neutral-50">
                   <td className="p-4 text-sm text-neutral-700 font-medium">
                     {metric.label}
                   </td>
-                  {values.map((value, vIndex) => {
-                    const isHighest = value === maxValue && values.length > 1;
-                    const isLowest = value === minValue && values.length > 1;
+                  {values?.map((value, vIndex) => {
+                    const isHighest =
+                      value === maxValue && (values?.length || 0) > 1;
+                    const isLowest =
+                      value === minValue && (values?.length || 0) > 1;
 
                     return (
                       <td key={vIndex} className="p-4">
@@ -155,18 +157,18 @@ function PodsComparison({ items }: { items: any[] }) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {items.map((item, index) => (
+        {items?.map((item, index) => (
           <div
             key={index}
             className="bg-white border border-neutral-200 rounded-xl p-4"
           >
             <h4 className="font-mono text-sm font-semibold text-neutral-900 mb-4">
-              {item.name || `Pod ${index + 1}`}
+              {item?.name || `Pod ${index + 1}`}
             </h4>
 
             <div className="space-y-3">
-              {fields.map((field, fIndex) => {
-                const value = item[field.key] || "-";
+              {fields?.map((field, fIndex) => {
+                const value = item?.[field.key] || "-";
                 return (
                   <div
                     key={fIndex}
@@ -198,7 +200,7 @@ function GenericComparison({ items }: { items: any[] }) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {items.map((item, index) => (
+        {items?.map((item, index) => (
           <div
             key={index}
             className="bg-white border border-neutral-200 rounded-xl p-4"

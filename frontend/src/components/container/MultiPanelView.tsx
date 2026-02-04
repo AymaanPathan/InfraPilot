@@ -1,172 +1,219 @@
 "use client";
 
 import { z } from "zod";
-import { useState } from "react";
-import { Grid, Layers } from "lucide-react";
-import { PodGrid } from "./PodsGrid";
 import { LogsViewer } from "./LogsViewer";
 import { EventsTimeline } from "./EventsTimeline";
+import {
+  AlertCircle,
+  XCircle,
+  CheckCircle2,
+  FileText,
+  Activity,
+} from "lucide-react";
+
+/**
+ * MultiPanelView Component - FOR LOG & EVENT COMPARISONS
+ *
+ * Displays multiple results side-by-side in panels.
+ * Perfect for "compare logs of X and Y" or "show pods and their logs"
+ */
 
 export const multiPanelViewSchema = z.object({
-  panels: z.array(
-    z.object({
-      id: z.string(),
-      step: z.number(),
-      data: z.any(),
-      success: z.boolean(),
-      title: z.string().optional(),
-      componentType: z.string().optional(),
-    }),
-  ),
-  layout: z.enum(["tabs", "grid", "vertical"]).optional().default("tabs"),
-  explanation: z.string().optional(),
+  panels: z
+    .array(
+      z.object({
+        id: z.string(),
+        step: z.number(),
+        data: z.any().nullable(),
+        success: z.boolean(),
+        error: z.string().optional(),
+      }),
+    )
+    .optional(),
+  items: z.array(z.any()).optional(),
+  comparison: z
+    .array(
+      z.object({
+        step: z.number(),
+        success: z.boolean(),
+        data: z.any().nullable(),
+        error: z.string().optional(),
+        podName: z.string().optional(),
+      }),
+    )
+    .optional(),
+  comparisonType: z.string().optional(),
 });
 
-type MultiPanelViewProps = {
-  panels?: z.infer<typeof multiPanelViewSchema>["panels"];
-  layout?: "tabs" | "grid" | "vertical";
-  explanation?: string;
-};
+type MultiPanelViewProps = z.infer<typeof multiPanelViewSchema>;
 
 export function MultiPanelView({
-  panels = [],
-  layout = "tabs",
-  explanation,
+  panels,
+  items,
+  comparison,
+  comparisonType,
 }: MultiPanelViewProps) {
-  const [activeTab, setActiveTab] = useState(0);
+  // Support both formats: panels array OR comparison array
+  const panelData =
+    panels ||
+    comparison?.map((c, index) => ({
+      id: `panel-${index}`,
+      step: c.step,
+      data: c.data,
+      success: c.success,
+      error: c.error,
+      podName: c.podName,
+    })) ||
+    [];
 
-  if (layout === "tabs") {
-    return (
-      <div className="space-y-4">
-        {explanation && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-            <p className="text-sm text-blue-900">{explanation}</p>
-          </div>
-        )}
+  const successfulPanels = panelData.filter((p) => p.success);
+  const errorPanels = panelData.filter((p) => !p.success);
 
-        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-          <div className="border-b border-neutral-200 bg-neutral-50 p-1 flex gap-1">
-            {panels?.map((panel, index) => (
-              <button
-                key={panel?.id}
-                onClick={() => setActiveTab(index)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === index
-                    ? "bg-neutral-900 text-white shadow-sm"
-                    : "text-neutral-600 hover:bg-neutral-100"
-                }`}
-              >
-                {panel?.title || `Step ${index + 1}`}
-              </button>
-            ))}
-          </div>
-
-          <div className="p-4">
-            <PanelContent panel={panels?.[activeTab]} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (layout === "grid") {
-    return (
-      <div className="space-y-4">
-        {explanation && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <p className="text-sm text-blue-900">{explanation}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {panels?.map((panel, index) => (
-            <div
-              key={panel?.id}
-              className="bg-white border border-neutral-200 rounded-xl overflow-hidden"
-            >
-              <div className="border-b border-neutral-200 bg-neutral-50 p-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                  <Grid className="w-4 h-4 text-neutral-600" />
-                  {panel?.title || `Step ${index + 1}`}
-                </h3>
-              </div>
-              <div className="p-4">
-                <PanelContent panel={panel} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // Detect panel type from data
+  const panelType = detectPanelType(successfulPanels[0]?.data);
 
   return (
-    <div className="space-y-4">
-      {explanation && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-900">{explanation}</p>
+    <div className="space-y-6">
+      {/* Error Summary */}
+      {errorPanels.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-medium text-amber-900 mb-2">
+                {errorPanels.length} item(s) could not be loaded
+              </h3>
+              <div className="space-y-1 text-sm text-amber-800">
+                {errorPanels.map((panel: any, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4" />
+                    <span className="font-mono">
+                      {(panel.podName as any) || `Panel ${panel.step}`}
+                    </span>
+                    <span className="text-amber-600">
+                      - {panel.error || "Unknown error"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {panels?.map((panel, index) => (
+      {/* Panel Grid */}
+      {successfulPanels.length > 0 ? (
         <div
-          key={panel?.id}
-          className="bg-white border border-neutral-200 rounded-xl overflow-hidden"
+          className={`grid gap-6 ${successfulPanels.length === 1 ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}
         >
-          <div className="border-b border-neutral-200 bg-neutral-50 p-3">
-            <h3 className="flex items-center gap-2 font-semibold text-neutral-900">
-              <Layers className="w-5 h-5 text-neutral-600" />
-              {panel?.title || `Step ${index + 1}`}
-            </h3>
-          </div>
-          <div className="p-4">
-            <PanelContent panel={panel} />
-          </div>
+          {successfulPanels.map((panel, index) => (
+            <PanelCard
+              key={panel.id}
+              panel={panel}
+              index={index}
+              type={panelType}
+            />
+          ))}
         </div>
-      ))}
+      ) : (
+        <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-8 text-center">
+          <XCircle className="w-12 h-12 text-neutral-400 mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-neutral-900 mb-2">
+            No data available
+          </h3>
+          <p className="text-sm text-neutral-600">
+            All requested items failed to load. Check pod names and try again.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
-function PanelContent({ panel = {} }: { panel?: any }) {
-  if (!panel?.success) {
-    return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-        ✗ Step failed: {panel?.error || "Unknown error"}
-      </div>
-    );
-  }
-
-  const data = panel?.data;
-
-  if (data?.pods || Array.isArray(data)) {
-    return <PodGrid pods={data.pods || data} />;
-  }
-
-  if (data?.logs || typeof data === "string") {
-    return (
-      <LogsViewer
-        logs={data.logs || data}
-        podName={data.podName || data._itemContext?.name || "unknown"}
-        namespace={data.namespace || data._itemContext?.namespace || "default"}
-      />
-    );
-  }
-
-  if (data?.events) {
-    return (
-      <EventsTimeline
-        events={data?.events}
-        podName={data?.podName || data._itemContext?.name}
-      />
-    );
-  }
+function PanelCard({
+  panel,
+  index,
+  type,
+}: {
+  panel: any;
+  index: number;
+  type: "logs" | "events" | "generic";
+}) {
+  const podName = panel.data?.podName || panel.podName || `Panel ${index + 1}`;
+  const namespace = panel.data?.namespace || "default";
 
   return (
-    <div className="bg-neutral-50 rounded-lg p-4 overflow-auto max-h-96 border border-neutral-200">
-      <pre className="text-xs text-neutral-700">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
+      {/* Panel Header */}
+      <div className="p-4 border-b border-neutral-200 bg-neutral-50 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {type === "logs" && <FileText className="w-5 h-5 text-blue-600" />}
+            {type === "events" && (
+              <Activity className="w-5 h-5 text-purple-600" />
+            )}
+            {type === "generic" && (
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            )}
+
+            <div>
+              <h3 className="font-semibold text-neutral-900 font-mono text-sm">
+                {podName}
+              </h3>
+              <p className="text-xs text-neutral-500">{namespace}</p>
+            </div>
+          </div>
+
+          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+            ✓ Loaded
+          </span>
+        </div>
+      </div>
+
+      {/* Panel Content */}
+      <div className="flex-1 overflow-hidden">
+        {type === "logs" && (
+          <LogsViewer
+            logs={panel.data?.logs || []}
+            podName={podName}
+            namespace={namespace}
+            container={panel.data?.container}
+            showTimestamps={true}
+            highlightErrors={true}
+          />
+        )}
+
+        {type === "events" && (
+          <EventsTimeline events={panel.data?.events || []} podName={podName} />
+        )}
+
+        {type === "generic" && (
+          <div className="p-4 overflow-auto h-full">
+            <pre className="text-xs text-neutral-700 whitespace-pre-wrap">
+              {JSON.stringify(panel.data, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function detectPanelType(data: any): "logs" | "events" | "generic" {
+  if (!data) return "generic";
+
+  // Check for logs
+  if (data.logs || typeof data === "string") {
+    return "logs";
+  }
+
+  // Check for events
+  if (
+    data.events ||
+    (Array.isArray(data) && data[0]?.type && data[0]?.reason)
+  ) {
+    return "events";
+  }
+
+  return "generic";
 }

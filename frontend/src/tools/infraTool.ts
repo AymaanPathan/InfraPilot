@@ -11,8 +11,7 @@ export const infraCommandTool: TamboTool<{
   explain?: boolean;
 }> = {
   name: "infra_command",
-  description:
-    "Execute Kubernetes operations using natural language with AI-powered explanations and full debug logging.",
+  description: "Execute Kubernetes operations using natural language",
 
   inputSchema: {
     type: "object",
@@ -58,7 +57,15 @@ export const infraCommandTool: TamboTool<{
     // Group logs for this command
     logger.group(`Command: "${input}"`);
     logger.info("tool", "infra_command invoked", { input, explain });
+    const isComparisonQuery = /compare|versus|vs\b/i.test(input);
 
+    if (isComparisonQuery) {
+      logger.info("tool", "🔵 COMPARISON DETECTED - sending to backend as-is", {
+        input,
+        isLogComparison: /logs?/i.test(input),
+        isMetricComparison: /cpu|memory|metric|usage/i.test(input),
+      });
+    }
     try {
       // Validate input
       if (!input || typeof input !== "string" || input.trim().length === 0) {

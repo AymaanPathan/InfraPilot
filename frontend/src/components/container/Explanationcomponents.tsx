@@ -58,7 +58,13 @@ export function ExplanationDisplay({
     },
   };
 
-  const { icon, bgColor, borderColor, iconColor, titleColor } = config[type];
+  const {
+    icon = null,
+    bgColor = "bg-neutral-50",
+    borderColor = "border-neutral-200",
+    iconColor = "text-neutral-700",
+    titleColor = "text-neutral-900",
+  } = config[type] || {};
 
   return (
     <div

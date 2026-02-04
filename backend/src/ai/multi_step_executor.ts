@@ -3,13 +3,12 @@ import { runTool } from "./tool-runner";
 import type { MultiStepPlan, PlanStep } from "./multi_step_planner";
 
 /**
- * Multi-Step Executor - PHASE F
+ * Multi-Step Executor - FIXED COMPARISON HANDLING
  *
- * Executes complex multi-step plans with:
- * - Dependency resolution
- * - Dynamic argument population
- * - Result merging strategies
- * - Error recovery
+ * Key fixes:
+ * 1. Better error handling for missing pods
+ * 2. Proper comparison data structure
+ * 3. Include error information in comparison results
  */
 
 export interface StepResult {
@@ -29,32 +28,37 @@ export interface ExecutionResult {
   explanation?: string;
 }
 
-/**
- * Execute multi-step plan
- */
 export async function executeMultiStepPlan(
   plan: MultiStepPlan,
 ): Promise<ExecutionResult> {
   const startTime = Date.now();
-  const results: StepResult[] = [];
 
-  console.log("\n========== MULTI-STEP EXECUTOR START ==========");
+  console.log("\n========== 🔵 MULTI-STEP EXECUTOR START ==========");
   console.log("📊 Plan:", {
     stepCount: plan.steps.length,
     mergeStrategy: plan.merge_strategy,
     finalComponent: plan.final_component,
   });
 
+  const isComparison = plan.merge_strategy === "compare";
+  if (isComparison) {
+    console.log("\n🔵 COMPARISON MODE DETECTED!");
+    console.log("   Will merge results for ComparisonView");
+  }
+
+  const results: StepResult[] = [];
+
   try {
-    // Execute steps based on dependencies
+    // Execute steps sequentially (even on errors for comparison)
     for (const step of plan.steps) {
       console.log(
-        `\n🔹 Executing Step ${step.step_number}: ${step.description}`,
+        `\n📍 Executing Step ${step.step_number}: ${step.description}`,
       );
 
       const stepStartTime = Date.now();
       const resolvedArgs = await resolveDynamicArgs(step, results);
 
+      console.log("   Tool:", step.tool);
       console.log("   Args:", resolvedArgs);
 
       // Handle dynamic loops (e.g., get logs for each pod)
@@ -66,7 +70,7 @@ export async function executeMultiStepPlan(
         );
         results.push(...loopResults);
       } else {
-        // Single execution
+        // Single execution - CONTINUE EVEN ON ERROR FOR COMPARISONS
         try {
           const toolResult = await runTool({
             tool: step.tool,
@@ -86,31 +90,66 @@ export async function executeMultiStepPlan(
           console.log(
             `   ✅ Step ${step.step_number} completed (${stepExecutionTime}ms)`,
           );
+
+          if (isComparison) {
+            console.log("   📊 Comparison data collected:", {
+              success: toolResult.success,
+              hasMetrics: !!toolResult.data?.metrics,
+              podName: toolResult.data?.name || toolResult.data?.metadata?.name,
+              error: toolResult.error,
+            });
+          }
         } catch (error) {
           const stepExecutionTime = Date.now() - stepStartTime;
-          console.error(`   ❌ Step ${step.step_number} failed:`, error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+
+          console.error(`   ⚠️ Step ${step.step_number} failed:`, errorMessage);
 
           results.push({
             step_number: step.step_number,
             success: false,
             data: null,
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMessage,
             executionTime: stepExecutionTime,
           });
 
-          // Stop on critical errors (optional: could implement retry logic)
-          throw error;
+          // For comparisons, continue to next step
+          if (isComparison) {
+            console.log("   ℹ️ Continuing to next comparison item...");
+          } else {
+            // For non-comparisons, stop on error
+            throw error;
+          }
         }
       }
     }
 
     // Merge results based on strategy
     console.log("\n🔀 Merging results with strategy:", plan.merge_strategy);
-    const mergedData = await mergeResults(results, plan.merge_strategy);
+    const mergedData = await mergeResults(
+      results,
+      plan.merge_strategy,
+      plan.steps,
+    );
 
-    // Generate explanation if needed
+    if (isComparison) {
+      console.log("\n🔵 COMPARISON MERGE COMPLETE!");
+      console.log("   Merged data structure:", {
+        hasComparison: !!mergedData.comparison,
+        hasItems: !!mergedData.items,
+        itemCount: mergedData.items?.length || 0,
+        comparisonType: mergedData.comparisonType,
+        successfulItems:
+          mergedData.items?.filter((i: any) => i !== null).length || 0,
+      });
+    }
+
+    // Generate explanation if needed or if there were errors
     let explanation: string | undefined;
-    if (plan.explanation_needed) {
+    const hasErrors = results.some((r) => !r.success);
+
+    if (plan.explanation_needed || hasErrors) {
       explanation = await generateMultiStepExplanation(plan, results);
     }
 
@@ -119,18 +158,25 @@ export async function executeMultiStepPlan(
     console.log("\n✅ Multi-step execution completed!");
     console.log("   Total steps:", results.length);
     console.log("   Successful:", results.filter((r) => r.success).length);
+    console.log("   Failed:", results.filter((r) => !r.success).length);
     console.log("   Total time:", totalExecutionTime, "ms");
     console.log("========== MULTI-STEP EXECUTOR END ==========\n");
 
     logger.info("Multi-step plan executed", {
       stepCount: results.length,
       successCount: results.filter((r) => r.success).length,
+      failedCount: results.filter((r) => !r.success).length,
       mergeStrategy: plan.merge_strategy,
       totalExecutionTime,
     });
 
+    // For comparisons, consider it successful even if some items failed
+    const success = isComparison
+      ? results.some((r) => r.success) // At least one succeeded
+      : results.every((r) => r.success); // All must succeed
+
     return {
-      success: results.every((r) => r.success),
+      success,
       results,
       mergedData,
       finalComponent: plan.final_component,
@@ -154,9 +200,6 @@ export async function executeMultiStepPlan(
   }
 }
 
-/**
- * Resolve dynamic arguments from previous step results
- */
 async function resolveDynamicArgs(
   step: PlanStep,
   previousResults: StepResult[],
@@ -196,18 +239,12 @@ async function resolveDynamicArgs(
   return resolvedArgs;
 }
 
-/**
- * Check if step has dynamic loop args
- */
 function hasDynamicEach(args: Record<string, any>): boolean {
   return Object.values(args).some(
     (v) => typeof v === "string" && v === "$DYNAMIC_EACH",
   );
 }
 
-/**
- * Execute step in a loop over previous results
- */
 async function executeDynamicLoop(
   step: PlanStep,
   args: Record<string, any>,
@@ -256,7 +293,7 @@ async function executeDynamicLoop(
       }
     }
 
-    console.log(`   ⚙️  Item ${i + 1}/${items.length}:`, loopArgs);
+    console.log(`   ⚙️ Item ${i + 1}/${items.length}:`, loopArgs);
 
     try {
       const toolResult = await runTool({
@@ -285,9 +322,6 @@ async function executeDynamicLoop(
   return results;
 }
 
-/**
- * Extract nested field from object
- */
 function extractField(obj: any, path: string): any {
   const parts = path.split(".");
   let current = obj;
@@ -302,30 +336,81 @@ function extractField(obj: any, path: string): any {
   return current;
 }
 
-/**
- * Merge results based on strategy
- */
 async function mergeResults(
   results: StepResult[],
   strategy: string,
+  steps: PlanStep[],
 ): Promise<any> {
+  console.log("\n🔀 MERGE RESULTS CALLED");
+  console.log("   Strategy:", strategy);
+  console.log("   Result count:", results.length);
+
   switch (strategy) {
     case "sequential":
       // Return only the last result
+      console.log("   Using sequential merge");
       return results[results.length - 1]?.data || null;
 
     case "compare":
-      // Return comparison structure
-      return {
-        comparison: results.map((r) => ({
+      // Return comparison structure with proper error handling
+      console.log("   🔵 Using COMPARISON merge");
+
+      const comparisonItems = results.map((r, index) => {
+        const step = steps[index];
+
+        if (!r.success) {
+          // Return error info for failed comparisons
+          return {
+            _error: true,
+            _errorMessage: r.error || "Unknown error",
+            _podName: step?.args?.name || "unknown",
+            _namespace: step?.args?.namespace || "default",
+            name: step?.args?.name || "unknown",
+            namespace: step?.args?.namespace || "default",
+            status: "Error",
+          };
+        }
+
+        // Extract pod info for successful comparisons
+        const podData = r.data?.pod || r.data;
+        return {
+          ...podData,
+          _success: true,
+          _stepNumber: r.step_number,
+        };
+      });
+
+      const comparisonData = {
+        comparison: results.map((r, index) => ({
           step: r.step_number,
+          success: r.success,
           data: r.data,
+          error: r.error,
+          podName: steps[index]?.args?.name,
         })),
-        items: results.map((r) => r.data),
+        items: comparisonItems,
+        comparisonType: "metrics",
+        errors: results
+          .filter((r) => !r.success)
+          .map((r, index) => ({
+            step: r.step_number,
+            podName: steps[index]?.args?.name,
+            error: r.error,
+          })),
       };
+
+      console.log("   📊 Comparison data created:", {
+        comparisonCount: comparisonData.comparison.length,
+        itemsCount: comparisonData.items.length,
+        successfulItems: comparisonItems.filter((i) => i._success).length,
+        errorItems: comparisonItems.filter((i) => i._error).length,
+      });
+
+      return comparisonData;
 
     case "aggregate":
       // Combine all results into arrays
+      console.log("   Using aggregate merge");
       return {
         aggregated: true,
         allData: results.map((r) => r.data),
@@ -337,30 +422,31 @@ async function mergeResults(
 
     case "side_by_side":
       // Return panels structure
+      console.log("   Using side_by_side merge");
       return {
         panels: results.map((r, index) => ({
           id: `panel-${index}`,
           step: r.step_number,
           data: r.data,
           success: r.success,
+          error: r.error,
         })),
       };
 
     default:
       // Default: return all results
+      console.log("   Using default merge");
       return results.map((r) => r.data);
   }
 }
 
-/**
- * Generate explanation for multi-step execution
- */
 async function generateMultiStepExplanation(
   plan: MultiStepPlan,
   results: StepResult[],
 ): Promise<string> {
   const successCount = results.filter((r) => r.success).length;
   const totalCount = results.length;
+  const failedCount = totalCount - successCount;
 
   let explanation = `Executed ${totalCount} step(s):\n\n`;
 
@@ -369,12 +455,26 @@ async function generateMultiStepExplanation(
       (s) => s.step_number === Math.floor(result.step_number),
     );
     if (step) {
-      explanation += `${index + 1}. ${step.description} - ${result.success ? "✅ Success" : "❌ Failed"}\n`;
+      const status = result.success ? "✅ Success" : "❌ Failed";
+      explanation += `${index + 1}. ${step.description} - ${status}\n`;
+
+      if (!result.success && result.error) {
+        explanation += `   Error: ${result.error}\n`;
+      }
     }
   });
 
-  if (successCount < totalCount) {
-    explanation += `\n⚠️ ${totalCount - successCount} step(s) failed.`;
+  if (failedCount > 0) {
+    explanation += `\n⚠️ ${failedCount} step(s) failed.\n`;
+
+    // Add specific error details for comparisons
+    if (plan.merge_strategy === "compare") {
+      explanation += `\nNote: Some pods in the comparison could not be found. This may be because:\n`;
+      explanation += `- The pods don't exist in the cluster\n`;
+      explanation += `- The pod names were misspelled\n`;
+      explanation += `- The pods are in a different namespace\n\n`;
+      explanation += `Suggestion: Run "show all pods" to see available pods first.`;
+    }
   }
 
   return explanation;

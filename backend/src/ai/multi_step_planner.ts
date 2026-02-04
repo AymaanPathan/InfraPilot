@@ -3,14 +3,7 @@ import logger from "../utils/logger";
 import { getToolSchemasForPlanner, TOOL_REGISTRY } from "./ToolsRegistry";
 
 /**
- * Multi-Step Planner Service - PHASE F - FIXED
- *
- * Handles complex prompts with multiple intents:
- * - "show failing pods and their logs" → [get_filtered_pods, get_pod_logs]
- * - "compare cpu of payment and billing" → [describe_pod, describe_pod]
- * - "list pods and explain why they're failing" → [get_pods, explain_failures]
- *
- * CRITICAL FIX: Uses only valid tool names from TOOL_REGISTRY
+ * Multi-Step Planner Service - FIXED LOG COMPARISON
  */
 
 const groq = new Groq({
@@ -21,7 +14,7 @@ export interface PlanStep {
   step_number: number;
   tool: string;
   args: Record<string, any>;
-  depends_on?: number[]; // Which steps must complete first
+  depends_on?: number[];
   description: string;
 }
 
@@ -46,12 +39,114 @@ export function buildMultiStepPrompt(): string {
 4. For single-step: return is_multi_step: false with single step
 5. **CRITICAL**: You MUST use ONLY the exact tool names from "AVAILABLE TOOLS" section below
    - For pod metrics/CPU/memory: use "describe_pod" NOT "get_pod_metrics"
+   - For pod logs: use "get_pod_logs" NOT "get_logs"
    - For pod list: use "get_pods" NOT "list_pods"
    - Tool names are case-sensitive and must match exactly
 6. **DO NOT INVENT TOOLS**: There are NO tools called "analyze_logs", "assess_health", "explain_failures", etc.
    - For "explain" requests: Use the actual data tool (get_pod_logs, get_pod_events) with explanation_needed: true
    - The backend will automatically analyze the data and provide explanations
    - NEVER create a second step for analysis - just set explanation_needed flag
+
+# COMPARISON QUERIES (VERY IMPORTANT!)
+
+When user asks to "compare" pods/resources, you MUST identify WHAT they want to compare:
+
+## Comparing METRICS/CPU/MEMORY:
+User: "compare cpu of payment and billing"
+User: "compare memory usage of pod A and B"
+User: "compare metrics of X and Y"
+→ Use "describe_pod" for each pod
+
+Example:
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "describe_pod",
+      "args": {"name": "payment", "namespace": "default"},
+      "description": "Get metrics for payment pod"
+    },
+    {
+      "step_number": 2,
+      "tool": "describe_pod",
+      "args": {"name": "billing", "namespace": "default"},
+      "description": "Get metrics for billing pod"
+    }
+  ],
+  "merge_strategy": "compare",
+  "final_component": "ComparisonView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+## Comparing LOGS:
+User: "compare logs of payment and billing"
+User: "compare logs of app-error-pod and cpu-intensive-78dd9b95d5-qb5nf"
+User: "show logs of X and Y side by side"
+→ Use "get_pod_logs" for each pod
+
+Example:
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "get_pod_logs",
+      "args": {"name": "payment", "namespace": "default", "tail": 100},
+      "description": "Get logs for payment pod"
+    },
+    {
+      "step_number": 2,
+      "tool": "get_pod_logs",
+      "args": {"name": "billing", "namespace": "default", "tail": 100},
+      "description": "Get logs for billing pod"
+    }
+  ],
+  "merge_strategy": "side_by_side",
+  "final_component": "MultiPanelView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+## Comparing EVENTS:
+User: "compare events of X and Y"
+User: "why are X and Y failing"
+→ Use "get_pod_events" for each pod
+
+Example:
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "get_pod_events",
+      "args": {"name": "payment", "namespace": "default"},
+      "description": "Get events for payment pod"
+    },
+    {
+      "step_number": 2,
+      "tool": "get_pod_events",
+      "args": {"name": "billing", "namespace": "default"},
+      "description": "Get events for billing pod"
+    }
+  ],
+  "merge_strategy": "side_by_side",
+  "final_component": "MultiPanelView",
+  "confidence": "high",
+  "explanation_needed": true
+}
+
+# KEY RULE FOR COMPARISONS:
+- If user mentions "logs" → use get_pod_logs
+- If user mentions "events" → use get_pod_events  
+- If user mentions "cpu", "memory", "metrics", "usage" → use describe_pod
+- If user just says "compare X and Y" with no specific type → use describe_pod (default to metrics)
+
+# MERGE STRATEGY FOR COMPARISONS:
+- Logs comparison → merge_strategy: "side_by_side", final_component: "MultiPanelView"
+- Events comparison → merge_strategy: "side_by_side", final_component: "MultiPanelView"
+- Metrics comparison → merge_strategy: "compare", final_component: "ComparisonView"
 
 # OUTPUT STRUCTURE
 
@@ -103,19 +198,22 @@ ${toolSchemas}
 1. **sequential**: Execute steps one by one, show final result only
    - Use for: "get logs then explain them"
    
-2. **compare**: Execute steps in parallel, compare results
-   - Use for: "compare pod A and pod B"
+2. **compare**: Execute steps in parallel, compare results in table
+   - Use for: "compare metrics/cpu/memory of X and Y"
+   - Component: ComparisonView
    
 3. **aggregate**: Combine results into single view
    - Use for: "show all failed pods and their events"
    
 4. **side_by_side**: Show multiple results in panels
+   - Use for: "compare logs of X and Y"
    - Use for: "show pods and their logs"
+   - Component: MultiPanelView
 
 # FINAL COMPONENTS
 
-- **MultiPanelView**: Side-by-side panels (for "show X and Y")
-- **ComparisonView**: Comparison table (for "compare X and Y")
+- **MultiPanelView**: Side-by-side panels (for "compare logs", "show X and Y")
+- **ComparisonView**: Comparison table (for "compare metrics/cpu/memory") 
 - **AggregateView**: Combined results (for "all X with their Y")
 - Standard components: PodGrid, LogsViewer, etc.
 
@@ -181,7 +279,32 @@ User: "compare cpu of payment and billing pods"
   "explanation_needed": false
 }
 
-## Example 2b: Get CPU for single pod
+## Example 2b: Compare LOGS of two pods (IMPORTANT!)
+User: "compare logs of payment and billing pods"
+User: "compare logs of app-error-pod and cpu-intensive-78dd9b95d5-qb5nf"
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "get_pod_logs",
+      "args": {"name": "payment", "namespace": "default", "tail": 100},
+      "description": "Get logs for payment pod"
+    },
+    {
+      "step_number": 2,
+      "tool": "get_pod_logs",
+      "args": {"name": "billing", "namespace": "default", "tail": 100},
+      "description": "Get logs for billing pod"
+    }
+  ],
+  "merge_strategy": "side_by_side",
+  "final_component": "MultiPanelView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+## Example 2c: Get CPU for single pod
 User: "get CPU usage for pod nginx"
 {
   "is_multi_step": false,
@@ -249,7 +372,10 @@ User: "show all pods in production with their events"
 
 Detect multi-step when user says:
 - "X and Y" → Two operations (e.g., "show pods and their logs")
-- "compare X and Y" → Comparison (e.g., "compare CPU of pod A and B")
+- "compare X and Y" → Comparison - USE CORRECT TOOL BASED ON WHAT'S BEING COMPARED:
+  - "compare logs" → use get_pod_logs + side_by_side + MultiPanelView
+  - "compare events" → use get_pod_events + side_by_side + MultiPanelView
+  - "compare cpu/memory/metrics" → use describe_pod + compare + ComparisonView
 - "show X with their Y" → Aggregation with loop (e.g., "show all pods with their events")
 - "all X and their Y" → Loop + aggregate
 
@@ -263,23 +389,26 @@ CRITICAL: Do NOT create tools like "analyze_logs", "assess_health", or "explain_
 # COMMON QUERIES TO TOOL MAPPING
 
 **Pod Metrics/CPU/Memory queries:**
-- "get CPU usage" → use "describe_pod"
+- "compare cpu" → use "describe_pod" (metrics comparison)
+- "compare memory" → use "describe_pod" (metrics comparison)
+- "compare metrics" → use "describe_pod" (metrics comparison)
 - "show memory" → use "describe_pod"
-- "pod metrics" → use "describe_pod"
-- "resource usage" → use "get_resource_usage" (for cluster-wide) or "describe_pod" (for specific pod)
+- "resource usage" → use "get_resource_usage" (cluster-wide) or "describe_pod" (specific pod)
+
+**Log queries:**
+- "compare logs" → use "get_pod_logs" (log comparison)
+- "get logs" → use "get_pod_logs"
+- "show logs" → use "get_pod_logs"
+
+**Event queries:**
+- "compare events" → use "get_pod_events" (event comparison)
+- "why is X crashing" → use "get_pod_events"
+- "what happened" → use "get_pod_events"
 
 **Pod listing queries:**
 - "show pods" → use "get_pods"
 - "list pods" → use "get_pods"
 - "failing pods" → use "get_filtered_pods"
-
-**Log queries:**
-- "get logs" → use "get_pod_logs"
-- "show logs" → use "get_pod_logs"
-
-**Event queries:**
-- "why is X crashing" → use "get_pod_events"
-- "what happened" → use "get_pod_events"
 
 Now parse the user's request:`;
 }
@@ -289,8 +418,22 @@ export async function generateMultiStepPlan(
 ): Promise<MultiStepPlan> {
   const startTime = Date.now();
 
-  console.log("\n========== MULTI-STEP PLANNER DEBUG START ==========");
-  console.log("🔵 Input:", userInput);
+  console.log("\n========== 🔵 MULTI-STEP PLANNER DEBUG START ==========");
+  console.log("📥 Input:", userInput);
+  console.log("🔍 Checking if this is a comparison query...");
+
+  const isComparisonQuery = /compare|versus|vs\.?/i.test(userInput);
+  const isLogComparison =
+    /compar[e\w]*\s+(?:\w+\s+){0,5}logs?/i.test(userInput) || // "compare ... logs"
+    /logs?\s+(?:\w+\s+){0,5}compar/i.test(userInput); // "logs ... compare"
+
+  const isEventComparison =
+    /compar[e\w]*\s+(?:\w+\s+){0,5}events?/i.test(userInput) ||
+    /events?\s+(?:\w+\s+){0,5}compar/i.test(userInput);
+
+  console.log("   Is comparison?", isComparisonQuery);
+  console.log("   Is log comparison?", isLogComparison);
+  console.log("   Is event comparison?", isEventComparison);
 
   try {
     if (!process.env.GROQ_API_KEY) {
@@ -318,15 +461,45 @@ export async function generateMultiStepPlan(
       throw new Error("No response from AI model");
     }
 
-    console.log("📝 Raw response:", content);
+    console.log("📄 Raw response:", content);
     const plan = parseMultiStepPlan(content);
 
     const executionTime = Date.now() - startTime;
-    console.log("✅ Multi-step plan generated!");
+    console.log("\n✅ Multi-step plan generated!");
     console.log("   Is multi-step:", plan.is_multi_step);
     console.log("   Step count:", plan.steps.length);
     console.log("   Merge strategy:", plan.merge_strategy);
     console.log("   Final component:", plan.final_component);
+
+    if (plan.is_multi_step && plan.steps.length > 1) {
+      console.log("\n📋 Steps breakdown:");
+      plan.steps.forEach((step, i) => {
+        console.log(`   Step ${i + 1}:`, {
+          tool: step.tool,
+          args: step.args,
+          description: step.description,
+        });
+      });
+    }
+
+    // COMPARISON-SPECIFIC LOGGING
+    if (
+      plan.merge_strategy === "compare" ||
+      plan.merge_strategy === "side_by_side"
+    ) {
+      console.log("\n🔵 COMPARISON DETECTED!");
+      console.log("   Component will be:", plan.final_component);
+      console.log("   Items to compare:", plan.steps.length);
+      console.log("   Tool being used:", plan.steps[0]?.tool);
+
+      if (isLogComparison && plan.steps[0]?.tool !== "get_pod_logs") {
+        console.warn(
+          "   ⚠️ WARNING: User asked for logs but planner chose",
+          plan.steps[0]?.tool,
+        );
+      }
+    }
+
     console.log("   Execution time:", executionTime, "ms");
     console.log("========== MULTI-STEP PLANNER DEBUG END ==========\n");
 
@@ -334,6 +507,10 @@ export async function generateMultiStepPlan(
       isMultiStep: plan.is_multi_step,
       stepCount: plan.steps.length,
       mergeStrategy: plan.merge_strategy,
+      isComparison:
+        plan.merge_strategy === "compare" ||
+        plan.merge_strategy === "side_by_side",
+      isLogComparison,
       executionTime,
     });
 

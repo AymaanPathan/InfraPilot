@@ -28,8 +28,8 @@ export const clusterOverviewSchema = z.object({
 
 export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
   const healthScore = Math.round(
-    ((props.runningPods / props.totalPods) * 100 +
-      (props.activeNodes / props.totalNodes) * 100) /
+    ((props?.runningPods / props?.totalPods || 0) * 100 +
+      (props?.activeNodes / props?.totalNodes || 0) * 100) /
       2,
   );
 
@@ -74,7 +74,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
               />
             </div>
             <span className="text-neutral-600">
-              {props.runningPods}/{props.totalPods} pods
+              {props?.runningPods}/{props?.totalPods} pods
             </span>
           </div>
         </div>
@@ -87,7 +87,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
                 Active Nodes
               </div>
               <div className="text-5xl font-semibold text-neutral-900">
-                {props.activeNodes}
+                {props?.activeNodes || 0}
               </div>
             </div>
             <div className="p-3 rounded-xl bg-neutral-100">
@@ -95,7 +95,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
             </div>
           </div>
           <div className="text-sm text-neutral-600">
-            {props.totalNodes} total nodes in cluster
+            {props?.totalNodes || 0} total nodes in cluster
           </div>
         </div>
 
@@ -107,7 +107,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
                 Workloads
               </div>
               <div className="text-5xl font-semibold text-neutral-900">
-                {props.totalDeployments}
+                {props?.totalDeployments || 0}
               </div>
             </div>
             <div className="p-3 rounded-xl bg-neutral-100">
@@ -115,7 +115,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
             </div>
           </div>
           <div className="text-sm text-neutral-600">
-            {props.totalServices} services running
+            {props?.totalServices || 0} services running
           </div>
         </div>
       </div>
@@ -132,7 +132,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
               <div>
                 <div className="text-sm text-neutral-600">CPU Usage</div>
                 <div className="text-2xl font-semibold text-neutral-900">
-                  {props.cpuUsage}%
+                  {props?.cpuUsage || 0}%
                 </div>
               </div>
             </div>
@@ -140,13 +140,13 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
           <div className="relative h-3 bg-neutral-100 rounded-full overflow-hidden">
             <div
               className="absolute top-0 left-0 h-full bg-neutral-900 transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min(props.cpuUsage, 100)}%` }}
+              style={{ width: `${Math.min(props?.cpuUsage || 0, 100)}%` }}
             />
           </div>
           <div className="mt-2 text-xs text-neutral-500">
-            {props.cpuUsage < 70
+            {(props?.cpuUsage || 0) < 70
               ? "Healthy utilization"
-              : props.cpuUsage < 90
+              : (props?.cpuUsage || 0) < 90
                 ? "High usage"
                 : "Critical usage"}
           </div>
@@ -162,7 +162,7 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
               <div>
                 <div className="text-sm text-neutral-600">Memory Usage</div>
                 <div className="text-2xl font-semibold text-neutral-900">
-                  {props.memoryUsage}%
+                  {props?.memoryUsage || 0}%
                 </div>
               </div>
             </div>
@@ -170,13 +170,13 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
           <div className="relative h-3 bg-neutral-100 rounded-full overflow-hidden">
             <div
               className="absolute top-0 left-0 h-full bg-neutral-900 transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min(props.memoryUsage, 100)}%` }}
+              style={{ width: `${Math.min(props?.memoryUsage || 0, 100)}%` }}
             />
           </div>
           <div className="mt-2 text-xs text-neutral-500">
-            {props.memoryUsage < 70
+            {(props?.memoryUsage || 0) < 70
               ? "Healthy utilization"
-              : props.memoryUsage < 90
+              : (props?.memoryUsage || 0) < 90
                 ? "High usage"
                 : "Critical usage"}
           </div>
@@ -188,25 +188,25 @@ export function ClusterOverview(props: z.infer<typeof clusterOverviewSchema>) {
         <StatCard
           icon={<CheckCircle2 className="w-5 h-5" />}
           label="Running Pods"
-          value={props.runningPods}
+          value={props?.runningPods || 0}
           color="green"
         />
         <StatCard
           icon={<AlertTriangle className="w-5 h-5" />}
           label="Failed Pods"
-          value={props.failedPods}
+          value={props?.failedPods || 0}
           color="red"
         />
         <StatCard
           icon={<Clock className="w-5 h-5" />}
           label="Uptime"
-          value={props.uptime || "N/A"}
+          value={props?.uptime || "N/A"}
           color="neutral"
         />
         <StatCard
           icon={<Server className="w-5 h-5" />}
           label="Version"
-          value={props.clusterVersion || "N/A"}
+          value={props?.clusterVersion || "N/A"}
           color="neutral"
         />
       </div>

@@ -2,19 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTamboThread, useTamboThreadInput } from "@tambo-ai/react";
-import {
-  MessageCircle,
-  Send,
-  Sparkles,
-  Activity,
-  Box,
-  Database,
-  Network,
-  TrendingUp,
-  Brain,
-  Command,
-  Loader2,
-} from "lucide-react";
+import { MessageCircle, Send, Brain, Loader2 } from "lucide-react";
 import { ExplanationDisplay } from "@/components/container/Explanationcomponents";
 import { logger } from "@/components/DevConsole";
 
@@ -236,34 +224,10 @@ function EmptyState({
         </span>{" "}
         using AI.
       </p>
-
-      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl w-full">
-        {examples.map((example, index) => (
-          <button
-            key={index}
-            onClick={() => onExampleClick(example.text)}
-            className="group relative overflow-hidden rounded-xl border border-neutral-200 bg-white p-5 text-left transition-all duration-200 hover:border-neutral-300 hover:shadow-sm"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <div className="flex flex-col gap-3">
-              <div className="inline-flex p-2.5 rounded-lg bg-neutral-100 text-neutral-700 w-fit">
-                {example.icon}
-              </div>
-              <span className="text-sm text-neutral-700 leading-relaxed">
-                {example.text}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div> */}
     </div>
   );
 }
 
-/**
- * Helper function to check if text looks like JSON or internal data
- * IMPORTANT: No side effects (logging) - called during render
- */
 function isInternalData(text: string): boolean {
   const trimmed = text.trim();
 
