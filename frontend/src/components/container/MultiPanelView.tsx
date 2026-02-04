@@ -1,20 +1,11 @@
 "use client";
 
 import { z } from "zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
+import { Grid, Layers } from "lucide-react";
 import { PodGrid } from "./PodsGrid";
 import { LogsViewer } from "./LogsViewer";
 import { EventsTimeline } from "./EventsTimeline";
-import { ExplanationDisplay } from "./Explanationcomponents";
-import { Grid, Columns, Layers } from "lucide-react";
-
-/**
- * Multi-Panel View Component - PHASE F
- *
- * Displays multiple results side-by-side or in tabs.
- * Used for complex queries like "show failing pods and their logs"
- */
 
 export const multiPanelViewSchema = z.object({
   panels: z.array(
@@ -38,49 +29,38 @@ export function MultiPanelView({
   layout = "tabs",
   explanation,
 }: MultiPanelViewProps) {
+  const [activeTab, setActiveTab] = useState(0);
+
   if (layout === "tabs") {
     return (
       <div className="space-y-4">
         {explanation && (
-          <ExplanationDisplay
-            explanation={explanation}
-            type="info"
-            className="mb-4"
-          />
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+            <p className="text-sm text-blue-900">{explanation}</p>
+          </div>
         )}
 
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Layers className="w-5 h-5 text-blue-400" />
-              Multi-Step Results ({panels.length} panels)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue={panels[0]?.id} className="w-full">
-              <TabsList
-                className="grid w-full"
-                style={{ gridTemplateColumns: `repeat(${panels.length}, 1fr)` }}
+        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <div className="border-b border-neutral-200 bg-neutral-50 p-1 flex gap-1">
+            {panels.map((panel, index) => (
+              <button
+                key={panel.id}
+                onClick={() => setActiveTab(index)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === index
+                    ? "bg-neutral-900 text-white shadow-sm"
+                    : "text-neutral-600 hover:bg-neutral-100"
+                }`}
               >
-                {panels.map((panel, index) => (
-                  <TabsTrigger
-                    key={panel.id}
-                    value={panel.id}
-                    className="data-[state=active]:bg-blue-600"
-                  >
-                    {panel.title || `Step ${index + 1}`}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+                {panel.title || `Step ${index + 1}`}
+              </button>
+            ))}
+          </div>
 
-              {panels.map((panel) => (
-                <TabsContent key={panel.id} value={panel.id} className="mt-4">
-                  <PanelContent panel={panel} />
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
+          <div className="p-4">
+            <PanelContent panel={panels[activeTab]} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -89,75 +69,72 @@ export function MultiPanelView({
     return (
       <div className="space-y-4">
         {explanation && (
-          <ExplanationDisplay
-            explanation={explanation}
-            type="info"
-            className="mb-4"
-          />
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <p className="text-sm text-blue-900">{explanation}</p>
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {panels.map((panel, index) => (
-            <Card key={panel.id} className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white text-sm">
-                  <Grid className="w-4 h-4 text-blue-400" />
+            <div
+              key={panel.id}
+              className="bg-white border border-neutral-200 rounded-xl overflow-hidden"
+            >
+              <div className="border-b border-neutral-200 bg-neutral-50 p-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                  <Grid className="w-4 h-4 text-neutral-600" />
                   {panel.title || `Step ${index + 1}`}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+                </h3>
+              </div>
+              <div className="p-4">
                 <PanelContent panel={panel} />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
-  // Vertical layout
   return (
     <div className="space-y-4">
       {explanation && (
-        <ExplanationDisplay
-          explanation={explanation}
-          type="info"
-          className="mb-4"
-        />
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <p className="text-sm text-blue-900">{explanation}</p>
+        </div>
       )}
 
       {panels.map((panel, index) => (
-        <Card key={panel.id} className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Columns className="w-5 h-5 text-blue-400" />
+        <div
+          key={panel.id}
+          className="bg-white border border-neutral-200 rounded-xl overflow-hidden"
+        >
+          <div className="border-b border-neutral-200 bg-neutral-50 p-3">
+            <h3 className="flex items-center gap-2 font-semibold text-neutral-900">
+              <Layers className="w-5 h-5 text-neutral-600" />
               {panel.title || `Step ${index + 1}`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </div>
+          <div className="p-4">
             <PanelContent panel={panel} />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ))}
     </div>
   );
 }
 
-/**
- * Render individual panel content based on data type
- */
 function PanelContent({ panel }: { panel: any }) {
   if (!panel.success) {
     return (
-      <div className="p-4 bg-red-900/20 border border-red-700/50 rounded-lg text-red-300">
-        ❌ Step failed: {panel.error || "Unknown error"}
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        ✗ Step failed: {panel.error || "Unknown error"}
       </div>
     );
   }
 
   const data = panel.data;
 
-  // Auto-detect component type based on data structure
   if (data.pods || Array.isArray(data)) {
     return <PodGrid pods={data.pods || data} />;
   }
@@ -181,10 +158,9 @@ function PanelContent({ panel }: { panel: any }) {
     );
   }
 
-  // Fallback: JSON view
   return (
-    <div className="bg-slate-900/50 rounded-lg p-4 overflow-auto max-h-96">
-      <pre className="text-xs text-slate-300">
+    <div className="bg-neutral-50 rounded-lg p-4 overflow-auto max-h-96 border border-neutral-200">
+      <pre className="text-xs text-neutral-700">
         {JSON.stringify(data, null, 2)}
       </pre>
     </div>

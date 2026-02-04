@@ -26,9 +26,9 @@ type DeploymentsListProps = z.infer<typeof deploymentsListSchema>;
 export function DeploymentsList({ deployments }: DeploymentsListProps) {
   const getStatusColor = (deployment: any) => {
     const { desired, ready } = deployment.replicas || {};
-    if (ready === desired && desired > 0) return "text-green-400";
-    if (ready === 0) return "text-red-400";
-    return "text-yellow-400";
+    if (ready === desired && desired > 0) return "text-green-600";
+    if (ready === 0) return "text-red-600";
+    return "text-amber-600";
   };
 
   const getStatusIcon = (deployment: any) => {
@@ -42,7 +42,7 @@ export function DeploymentsList({ deployments }: DeploymentsListProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">
+        <h3 className="text-lg font-semibold text-neutral-900">
           Deployments ({deployments?.length})
         </h3>
       </div>
@@ -59,7 +59,7 @@ export function DeploymentsList({ deployments }: DeploymentsListProps) {
           return (
             <div
               key={index}
-              className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800 transition-all duration-200 group"
+              className="bg-white border border-neutral-200 rounded-xl p-4 hover:shadow-sm transition-all duration-200 group"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3 flex-1">
@@ -68,19 +68,19 @@ export function DeploymentsList({ deployments }: DeploymentsListProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-mono text-sm font-semibold text-white truncate">
+                      <h4 className="font-mono text-sm font-semibold text-neutral-900 truncate">
                         {deployment.name}
                       </h4>
                       {deployment.namespace && (
-                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded-md">
+                        <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs rounded-md border border-neutral-200">
                           {deployment.namespace}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <div className="flex items-center gap-4 text-xs text-neutral-600">
                       <span className="flex items-center gap-1">
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-neutral-900">
                           {ready}
                         </span>
                         <span>/</span>
@@ -89,40 +89,41 @@ export function DeploymentsList({ deployments }: DeploymentsListProps) {
                       </span>
                       {available > 0 && (
                         <span>
-                          <span className="font-semibold text-green-400">
+                          <span className="font-semibold text-green-600">
                             {available}
                           </span>{" "}
                           available
                         </span>
                       )}
                       {deployment.age && (
-                        <span className="text-slate-500">{deployment.age}</span>
+                        <span className="text-neutral-500">
+                          {deployment.age}
+                        </span>
                       )}
                     </div>
 
                     {deployment.strategy && (
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-neutral-500">
                         Strategy: {deployment.strategy}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Replica Progress Bar */}
                 <div className="ml-4 w-24">
-                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-500 ${
                         ready === desired && desired > 0
-                          ? "bg-green-500"
+                          ? "bg-green-600"
                           : ready === 0
-                            ? "bg-red-500"
-                            : "bg-yellow-500"
+                            ? "bg-red-600"
+                            : "bg-amber-600"
                       }`}
                       style={{ width: `${(ready / desired) * 100}%` }}
                     />
                   </div>
-                  <div className="text-xs text-slate-500 text-center mt-1">
+                  <div className="text-xs text-neutral-500 text-center mt-1">
                     {Math.round((ready / desired) * 100)}%
                   </div>
                 </div>
@@ -133,7 +134,7 @@ export function DeploymentsList({ deployments }: DeploymentsListProps) {
       </div>
 
       {deployments?.length === 0 && (
-        <div className="text-center py-8 text-slate-400">
+        <div className="text-center py-8 text-neutral-500">
           <RefreshCw className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No deployments found</p>
         </div>

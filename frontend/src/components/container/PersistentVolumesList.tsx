@@ -24,37 +24,37 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
     switch (status?.toLowerCase()) {
       case "bound":
         return {
-          bg: "bg-green-500/20",
-          text: "text-green-300",
-          border: "border-green-500/30",
+          bg: "bg-green-50",
+          text: "text-green-700",
+          border: "border-green-200",
           icon: <Check className="w-4 h-4" />,
         };
       case "available":
         return {
-          bg: "bg-blue-500/20",
-          text: "text-blue-300",
-          border: "border-blue-500/30",
+          bg: "bg-blue-50",
+          text: "text-blue-700",
+          border: "border-blue-200",
           icon: <Clock className="w-4 h-4" />,
         };
       case "released":
         return {
-          bg: "bg-yellow-500/20",
-          text: "text-yellow-300",
-          border: "border-yellow-500/30",
+          bg: "bg-amber-50",
+          text: "text-amber-700",
+          border: "border-amber-200",
           icon: <Clock className="w-4 h-4" />,
         };
       case "failed":
         return {
-          bg: "bg-red-500/20",
-          text: "text-red-300",
-          border: "border-red-500/30",
+          bg: "bg-red-50",
+          text: "text-red-700",
+          border: "border-red-200",
           icon: <X className="w-4 h-4" />,
         };
       default:
         return {
-          bg: "bg-slate-500/20",
-          text: "text-slate-300",
-          border: "border-slate-500/30",
+          bg: "bg-neutral-100",
+          text: "text-neutral-700",
+          border: "border-neutral-200",
           icon: <HardDrive className="w-4 h-4" />,
         };
     }
@@ -73,7 +73,7 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">
+        <h3 className="text-lg font-semibold text-neutral-900">
           Persistent Volumes ({volumes.length})
         </h3>
       </div>
@@ -85,39 +85,38 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
           return (
             <div
               key={index}
-              className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800 transition-all duration-200"
+              className="bg-white border border-neutral-200 rounded-xl p-4 hover:shadow-sm transition-all duration-200"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-start gap-3 flex-1">
-                  <div className="p-2 bg-slate-700/50 rounded-lg">
-                    <Database className="w-5 h-5 text-purple-400" />
+                  <div className="p-2 bg-neutral-100 rounded-lg">
+                    <Database className="w-5 h-5 text-purple-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-mono text-sm font-semibold text-white truncate">
+                      <h4 className="font-mono text-sm font-semibold text-neutral-900 truncate">
                         {volume.name}
                       </h4>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       {volume.capacity && (
-                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-md font-semibold">
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-semibold border border-blue-200">
                           {volume.capacity}
                         </span>
                       )}
                       {volume.storageClass && (
-                        <span className="text-slate-400">
+                        <span className="text-neutral-600">
                           Class: {volume.storageClass}
                         </span>
                       )}
                       {volume.age && (
-                        <span className="text-slate-500">{volume.age}</span>
+                        <span className="text-neutral-500">{volume.age}</span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Status Badge */}
                 {volume.status && (
                   <div
                     className={`px-3 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
@@ -128,19 +127,17 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
                 )}
               </div>
 
-              {/* Details Grid */}
               <div className="grid grid-cols-2 gap-3 text-sm">
-                {/* Access Modes */}
                 {volume.accessModes && volume.accessModes.length > 0 && (
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">
+                    <div className="text-xs text-neutral-600 mb-1">
                       Access Modes
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {volume.accessModes.map((mode, mIndex) => (
                         <span
                           key={mIndex}
-                          className="px-2 py-0.5 bg-slate-900/50 text-slate-300 rounded text-xs font-mono"
+                          className="px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded text-xs font-mono border border-neutral-200"
                         >
                           {getAccessModeLabel(mode)}
                         </span>
@@ -149,19 +146,18 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
                   </div>
                 )}
 
-                {/* Reclaim Policy */}
                 {volume.reclaimPolicy && (
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">
+                    <div className="text-xs text-neutral-600 mb-1">
                       Reclaim Policy
                     </div>
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                         volume.reclaimPolicy === "Retain"
-                          ? "bg-green-500/20 text-green-300"
+                          ? "bg-green-50 text-green-700 border border-green-200"
                           : volume.reclaimPolicy === "Delete"
-                            ? "bg-red-500/20 text-red-300"
-                            : "bg-slate-700 text-slate-300"
+                            ? "bg-red-50 text-red-700 border border-red-200"
+                            : "bg-neutral-100 text-neutral-700 border border-neutral-200"
                       }`}
                     >
                       {volume.reclaimPolicy}
@@ -169,23 +165,23 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
                   </div>
                 )}
 
-                {/* Volume Mode */}
                 {volume.volumeMode && (
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">
+                    <div className="text-xs text-neutral-600 mb-1">
                       Volume Mode
                     </div>
-                    <span className="text-slate-300 text-xs">
+                    <span className="text-neutral-700 text-xs">
                       {volume.volumeMode}
                     </span>
                   </div>
                 )}
 
-                {/* Claim */}
                 {volume.claim && (
                   <div>
-                    <div className="text-xs text-slate-400 mb-1">Bound To</div>
-                    <code className="text-xs text-blue-300 font-mono">
+                    <div className="text-xs text-neutral-600 mb-1">
+                      Bound To
+                    </div>
+                    <code className="text-xs text-blue-700 font-mono">
                       {volume.claim}
                     </code>
                   </div>
@@ -197,7 +193,7 @@ export function PersistentVolumesList({ volumes }: PersistentVolumesListProps) {
       </div>
 
       {volumes.length === 0 && (
-        <div className="text-center py-8 text-slate-400">
+        <div className="text-center py-8 text-neutral-500">
           <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No persistent volumes found</p>
         </div>

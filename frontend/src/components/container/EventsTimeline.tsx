@@ -33,24 +33,24 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
     switch (type) {
       case "Warning":
         return {
-          bg: "bg-yellow-500/10",
-          border: "border-yellow-500/30",
-          text: "text-yellow-400",
-          icon: "text-yellow-400",
+          bg: "bg-amber-50",
+          border: "border-amber-200",
+          text: "text-amber-700",
+          icon: "text-amber-700",
         };
       case "Error":
         return {
-          bg: "bg-red-500/10",
-          border: "border-red-500/30",
-          text: "text-red-400",
-          icon: "text-red-400",
+          bg: "bg-red-50",
+          border: "border-red-200",
+          text: "text-red-700",
+          icon: "text-red-700",
         };
       default:
         return {
-          bg: "bg-blue-500/10",
-          border: "border-blue-500/30",
-          text: "text-blue-400",
-          icon: "text-blue-400",
+          bg: "bg-neutral-50",
+          border: "border-neutral-200",
+          text: "text-neutral-700",
+          icon: "text-neutral-700",
         };
     }
   };
@@ -74,7 +74,6 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
     }
   };
 
-  // Sort events by timestamp (most recent first)
   const sortedEvents = [...events].sort((a, b) => {
     const timeA = a.lastTimestamp || a.timestamp || a.firstTimestamp || "";
     const timeB = b.lastTimestamp || b.timestamp || b.firstTimestamp || "";
@@ -85,16 +84,15 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
     <div className="space-y-4">
       {podName && (
         <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">
+          <Clock className="w-5 h-5 text-neutral-700" />
+          <h3 className="text-lg font-semibold text-neutral-900">
             Events for {podName}
           </h3>
         </div>
       )}
 
       <div className="relative">
-        {/* Timeline line */}
-        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-700/50" />
+        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-neutral-200" />
 
         <div className="space-y-3">
           {sortedEvents.map((event, index) => {
@@ -104,7 +102,6 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
 
             return (
               <div key={index} className="relative pl-12">
-                {/* Timeline dot */}
                 <div
                   className={`absolute left-4 top-3 w-4 h-4 rounded-full border-2 ${colors.border} ${colors.bg} flex items-center justify-center`}
                 >
@@ -113,9 +110,8 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
                   />
                 </div>
 
-                {/* Event card */}
                 <div
-                  className={`${colors.bg} ${colors.border} border rounded-xl p-4 hover:shadow-lg transition-all duration-200`}
+                  className={`${colors.bg} ${colors.border} border rounded-xl p-4 hover:shadow-sm transition-all duration-200`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -130,24 +126,24 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
                         </span>
                       )}
                       {event.count && event.count > 1 && (
-                        <span className="px-2 py-0.5 bg-slate-700 text-slate-300 text-xs rounded-full">
+                        <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs rounded-full border border-neutral-200">
                           ×{event.count}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
                       <Clock className="w-3 h-3" />
                       {formatTimestamp(timestamp)}
                     </div>
                   </div>
 
-                  <p className="text-sm text-slate-300 leading-relaxed">
+                  <p className="text-sm text-neutral-700 leading-relaxed">
                     {event.message}
                   </p>
 
                   {event.source && (
-                    <div className="mt-2 text-xs text-slate-500">
+                    <div className="mt-2 text-xs text-neutral-500">
                       Source: {event.source}
                     </div>
                   )}
@@ -159,14 +155,14 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
       </div>
 
       {events.length === 0 && (
-        <div className="text-center py-8 text-slate-400">
+        <div className="text-center py-8 text-neutral-500">
           <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No events found</p>
         </div>
       )}
 
       {events.length > 0 && (
-        <div className="text-xs text-slate-500 text-center mt-4">
+        <div className="text-xs text-neutral-500 text-center mt-4">
           Showing {events.length} event{events.length !== 1 ? "s" : ""}
         </div>
       )}

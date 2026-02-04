@@ -38,19 +38,18 @@ export function ResourceQuota({
   summary,
 }: ResourceQuotaProps) {
   const getUsageColor = (percentage: number) => {
-    if (percentage >= 90) return "text-red-400 bg-red-500/20";
-    if (percentage >= 70) return "text-yellow-400 bg-yellow-500/20";
-    return "text-green-400 bg-green-500/20";
+    if (percentage >= 90) return "text-red-600 bg-red-50";
+    if (percentage >= 70) return "text-amber-600 bg-amber-50";
+    return "text-green-600 bg-green-50";
   };
 
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 90) return "bg-red-500";
-    if (percentage >= 70) return "bg-yellow-500";
-    return "bg-green-500";
+    if (percentage >= 90) return "bg-red-600";
+    if (percentage >= 70) return "bg-amber-600";
+    return "bg-green-600";
   };
 
   const calculatePercentage = (used: string, hard: string): number => {
-    // Parse resource strings (e.g., "2Gi", "500m", "10")
     const parseResource = (value: string): number => {
       const match = value.match(/^(\d+(?:\.\d+)?)(.*)?$/);
       if (!match) return 0;
@@ -58,14 +57,11 @@ export function ResourceQuota({
       const num = parseFloat(match[1]);
       const unit = match[2]?.toLowerCase();
 
-      // Handle memory units
       if (unit === "gi") return num * 1024 * 1024 * 1024;
       if (unit === "mi") return num * 1024 * 1024;
       if (unit === "ki") return num * 1024;
       if (unit === "g") return num * 1000 * 1000 * 1000;
       if (unit === "m" && value.includes("i")) return num * 1000 * 1000;
-
-      // Handle CPU millicores
       if (unit === "m") return num;
 
       return num;
@@ -79,7 +75,6 @@ export function ResourceQuota({
   };
 
   const formatResource = (resource: string) => {
-    // Make resource names more readable
     return resource
       .replace(/requests\./g, "")
       .replace(/limits\./g, "")
@@ -91,26 +86,27 @@ export function ResourceQuota({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-4">
-        <Gauge className="w-6 h-6 text-blue-400" />
+        <Gauge className="w-6 h-6 text-blue-600" />
         <div>
-          <h3 className="text-lg font-semibold text-white">Resource Quotas</h3>
-          <p className="text-sm text-slate-400">Namespace: {namespace}</p>
+          <h3 className="text-lg font-semibold text-neutral-900">
+            Resource Quotas
+          </h3>
+          <p className="text-sm text-neutral-600">Namespace: {namespace}</p>
         </div>
       </div>
 
-      {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           {summary.cpuUsed && summary.cpuLimit && (
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-2">CPU Usage</div>
+            <div className="bg-white border border-neutral-200 rounded-xl p-4">
+              <div className="text-sm text-neutral-600 mb-2">CPU Usage</div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-white">
+                <span className="text-2xl font-bold text-neutral-900">
                   {summary.cpuUsed}
                 </span>
-                <span className="text-slate-400">/ {summary.cpuLimit}</span>
+                <span className="text-neutral-600">/ {summary.cpuLimit}</span>
               </div>
-              <div className="mt-3 h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-500 ${getProgressColor(
                     calculatePercentage(summary.cpuUsed, summary.cpuLimit),
@@ -124,15 +120,17 @@ export function ResourceQuota({
           )}
 
           {summary.memoryUsed && summary.memoryLimit && (
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-2">Memory Usage</div>
+            <div className="bg-white border border-neutral-200 rounded-xl p-4">
+              <div className="text-sm text-neutral-600 mb-2">Memory Usage</div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-white">
+                <span className="text-2xl font-bold text-neutral-900">
                   {summary.memoryUsed}
                 </span>
-                <span className="text-slate-400">/ {summary.memoryLimit}</span>
+                <span className="text-neutral-600">
+                  / {summary.memoryLimit}
+                </span>
               </div>
-              <div className="mt-3 h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-500 ${getProgressColor(
                     calculatePercentage(
@@ -150,15 +148,17 @@ export function ResourceQuota({
 
           {summary.podsUsed !== undefined &&
             summary.podsLimit !== undefined && (
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-                <div className="text-sm text-slate-400 mb-2">Pod Count</div>
+              <div className="bg-white border border-neutral-200 rounded-xl p-4">
+                <div className="text-sm text-neutral-600 mb-2">Pod Count</div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white">
+                  <span className="text-2xl font-bold text-neutral-900">
                     {summary.podsUsed}
                   </span>
-                  <span className="text-slate-400">/ {summary.podsLimit}</span>
+                  <span className="text-neutral-600">
+                    / {summary.podsLimit}
+                  </span>
                 </div>
-                <div className="mt-3 h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${getProgressColor(
                       Math.round((summary.podsUsed / summary.podsLimit) * 100),
@@ -173,19 +173,18 @@ export function ResourceQuota({
         </div>
       )}
 
-      {/* Detailed Quotas */}
       {quotas && quotas.length > 0 && (
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-slate-300">
+          <h4 className="text-sm font-semibold text-neutral-700">
             Detailed Quotas
           </h4>
 
           {quotas.map((quota, qIndex) => (
             <div
               key={qIndex}
-              className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4"
+              className="bg-white border border-neutral-200 rounded-xl p-4"
             >
-              <div className="text-sm font-mono text-slate-300 mb-3">
+              <div className="text-sm font-mono text-neutral-700 mb-3">
                 {quota.name}
               </div>
 
@@ -200,19 +199,19 @@ export function ResourceQuota({
                   return (
                     <div key={rIndex} className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-300">
+                        <span className="text-neutral-700">
                           {formatResource(resource.resource)}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-white font-semibold">
+                          <span className="text-neutral-900 font-semibold">
                             {resource.used}
                           </span>
-                          <span className="text-slate-500">/</span>
-                          <span className="text-slate-400">
+                          <span className="text-neutral-500">/</span>
+                          <span className="text-neutral-600">
                             {resource.hard}
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${usageColor} flex items-center gap-1`}
+                            className={`px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 border ${usageColor}`}
                           >
                             {percentage >= 90 && (
                               <AlertTriangle className="w-3 h-3" />
@@ -221,7 +220,7 @@ export function ResourceQuota({
                           </span>
                         </div>
                       </div>
-                      <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
+                      <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full transition-all duration-500 ${progressColor}`}
                           style={{ width: `${percentage}%` }}
@@ -237,7 +236,7 @@ export function ResourceQuota({
       )}
 
       {(!quotas || quotas.length === 0) && !summary && (
-        <div className="text-center py-8 text-slate-400">
+        <div className="text-center py-8 text-neutral-600">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No resource quotas defined for this namespace</p>
         </div>
