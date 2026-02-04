@@ -1,6 +1,21 @@
 import * as k8s from "@kubernetes/client-node";
 import logger from "../utils/logger";
 
+/**
+ * Optimized Kubernetes Client
+ *
+ * Key optimizations:
+ * 1. Response caching for frequently accessed data
+ * 2. Batch operations for multiple similar requests
+ * 3. Request deduplication
+ * 4. Optimized metrics server checking
+ */
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
 export class KubernetesClient {
   private readonly kubeConfig: k8s.KubeConfig;
   private readonly coreV1Api: k8s.CoreV1Api;
@@ -15,6 +30,13 @@ export class KubernetesClient {
   private metricsServerAvailable: boolean | null = null;
   private lastMetricsCheck: number = 0;
   private readonly METRICS_CHECK_INTERVAL = 60000; // Check every 60 seconds
+
+  // Response cache for frequently accessed data
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private readonly CACHE_TTL = 5000; // 5 seconds cache TTL
+
+  // In-flight request deduplication
+  private inFlightRequests: Map<string, Promise<any>> = new Map();
 
   constructor(configPath?: string) {
     this.kubeConfig = new k8s.KubeConfig();
@@ -32,6 +54,73 @@ export class KubernetesClient {
     this.batchV1Api = this.kubeConfig.makeApiClient(k8s.BatchV1Api);
     this.storageV1Api = this.kubeConfig.makeApiClient(k8s.StorageV1Api);
     this.rbacV1Api = this.kubeConfig.makeApiClient(k8s.RbacAuthorizationV1Api);
+  }
+
+  // ============================================
+  // CACHE HELPERS
+  // ============================================
+
+  private getCacheKey(operation: string, ...args: any[]): string {
+    return `${operation}:${JSON.stringify(args)}`;
+  }
+
+  private getFromCache<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    const age = Date.now() - entry.timestamp;
+    if (age > this.CACHE_TTL) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry.data as T;
+  }
+
+  private setCache<T>(key: string, data: T): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Clear cache manually if needed
+   */
+  clearCache(): void {
+    this.cache.clear();
+    logger.info("Cache cleared");
+  }
+
+  // ============================================
+  // REQUEST DEDUPLICATION
+  // ============================================
+
+  /**
+   * Deduplicate concurrent identical requests
+   */
+  private async deduplicateRequest<T>(
+    key: string,
+    requestFn: () => Promise<T>,
+  ): Promise<T> {
+    // Check if same request is already in flight
+    const inFlight = this.inFlightRequests.get(key);
+    if (inFlight) {
+      logger.debug("Deduplicating request", { key });
+      return inFlight as Promise<T>;
+    }
+
+    // Execute request and store promise
+    const promise = requestFn();
+    this.inFlightRequests.set(key, promise);
+
+    try {
+      const result = await promise;
+      return result;
+    } finally {
+      // Clean up after request completes
+      this.inFlightRequests.delete(key);
+    }
   }
 
   // ============================================
@@ -86,71 +175,175 @@ export class KubernetesClient {
     }
   }
 
+  // ============================================
+  // OPTIMIZED POD OPERATIONS
+  // ============================================
+
   /**
-   * Get detailed metrics server status with installation guidance
+   * List pods with optional caching
    */
-  async getMetricsServerStatus(): Promise<{
-    available: boolean;
-    error?: string;
-    installationGuide?: string;
-  }> {
-    const available = await this.isMetricsServerAvailable();
-
-    if (!available) {
-      return {
-        available: false,
-        error: "Kubernetes Metrics Server is not installed or not responding",
-        installationGuide: `To enable pod metrics, install the Metrics Server:
-
-**For Docker Desktop Kubernetes:**
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-
-**For Minikube:**
-minikube addons enable metrics-server
-
-**For other clusters:**
-1. Download: curl -LO https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-2. Edit the deployment and add: --kubelet-insecure-tls
-3. Apply: kubectl apply -f components.yaml
-
-**Verify installation:**
-kubectl get deployment metrics-server -n kube-system
-kubectl top nodes
-
-After installation, wait 1-2 minutes for metrics to become available.`,
-      };
-    }
-
-    return { available: true };
-  }
-
-  // ============================================
-  // POD OPERATIONS
-  // ============================================
-
   async listPods(
     namespace?: string,
     labelSelector?: string,
+    useCache: boolean = false,
   ): Promise<k8s.V1Pod[]> {
-    try {
-      const response = namespace
-        ? await this.coreV1Api.listNamespacedPod({ namespace, labelSelector })
-        : await this.coreV1Api.listPodForAllNamespaces({ labelSelector });
+    const cacheKey = this.getCacheKey("listPods", namespace, labelSelector);
 
-      return response.items || [];
-    } catch (error) {
-      logger.error("Error listing pods", { error, namespace, labelSelector });
-      throw new Error(`Failed to list pods: ${error}`);
+    // Try cache first if enabled
+    if (useCache) {
+      const cached = this.getFromCache<k8s.V1Pod[]>(cacheKey);
+      if (cached) {
+        logger.debug("Cache hit for listPods");
+        return cached;
+      }
     }
+
+    // Deduplicate concurrent requests
+    return this.deduplicateRequest(cacheKey, async () => {
+      try {
+        const response = namespace
+          ? await this.coreV1Api.listNamespacedPod({ namespace, labelSelector })
+          : await this.coreV1Api.listPodForAllNamespaces({ labelSelector });
+
+        const pods = response.items || [];
+
+        // Cache result if caching is enabled
+        if (useCache) {
+          this.setCache(cacheKey, pods);
+        }
+
+        return pods;
+      } catch (error) {
+        logger.error("Error listing pods", { error, namespace, labelSelector });
+        throw new Error(`Failed to list pods: ${error}`);
+      }
+    });
+  }
+
+  /**
+   * Batch get multiple pods
+   * Much faster than calling getPod multiple times
+   */
+  async getPodsBatch(
+    requests: Array<{ name: string; namespace: string }>,
+  ): Promise<
+    Array<{
+      name: string;
+      namespace: string;
+      pod: k8s.V1Pod | null;
+      error?: string;
+    }>
+  > {
+    logger.info("Batch getting pods", { count: requests.length });
+
+    const startTime = Date.now();
+
+    // Execute all requests in parallel
+    const results = await Promise.all(
+      requests.map(async ({ name, namespace }) => {
+        try {
+          const pod = await this.coreV1Api.readNamespacedPod({
+            name,
+            namespace,
+          });
+          return { name, namespace, pod };
+        } catch (error) {
+          logger.warn("Pod not found in batch", { name, namespace });
+          return {
+            name,
+            namespace,
+            pod: null,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }),
+    );
+
+    const duration = Date.now() - startTime;
+    logger.info("Batch pod fetch complete", {
+      count: requests.length,
+      duration,
+      avgPerPod: Math.round(duration / requests.length),
+    });
+
+    return results;
   }
 
   async getPod(name: string, namespace: string): Promise<k8s.V1Pod> {
-    try {
-      return await this.coreV1Api.readNamespacedPod({ name, namespace });
-    } catch (error) {
-      logger.error("Error getting pod", { error, name, namespace });
-      throw new Error(`Failed to get pod ${name} in ${namespace}: ${error}`);
-    }
+    const cacheKey = this.getCacheKey("getPod", name, namespace);
+
+    return this.deduplicateRequest(cacheKey, async () => {
+      try {
+        return await this.coreV1Api.readNamespacedPod({ name, namespace });
+      } catch (error) {
+        logger.error("Error getting pod", { error, name, namespace });
+        throw new Error(`Failed to get pod ${name} in ${namespace}: ${error}`);
+      }
+    });
+  }
+
+  /**
+   * Optimized batch log fetching
+   */
+  async getPodLogsBatch(
+    requests: Array<{
+      name: string;
+      namespace: string;
+      options?: {
+        container?: string;
+        tailLines?: number;
+        previous?: boolean;
+        timestamps?: boolean;
+        sinceSeconds?: number;
+      };
+    }>,
+  ): Promise<
+    Array<{
+      name: string;
+      namespace: string;
+      logs: string | null;
+      error?: string;
+    }>
+  > {
+    logger.info("Batch getting pod logs", { count: requests.length });
+
+    const startTime = Date.now();
+
+    // Execute all log requests in parallel
+    const results = await Promise.all(
+      requests.map(async ({ name, namespace, options }) => {
+        try {
+          const logs = await this.coreV1Api.readNamespacedPodLog({
+            name,
+            namespace,
+            container: options?.container,
+            tailLines: options?.tailLines || 100, // Default to 100 lines
+            previous: options?.previous,
+            timestamps: options?.timestamps,
+            sinceSeconds: options?.sinceSeconds,
+          });
+
+          return { name, namespace, logs };
+        } catch (error) {
+          logger.warn("Failed to get logs for pod", { name, namespace });
+          return {
+            name,
+            namespace,
+            logs: null,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }),
+    );
+
+    const duration = Date.now() - startTime;
+    logger.info("Batch log fetch complete", {
+      count: requests.length,
+      duration,
+      avgPerPod: Math.round(duration / requests.length),
+    });
+
+    return results;
   }
 
   async getPodLogs(
@@ -180,6 +373,58 @@ After installation, wait 1-2 minutes for metrics to become available.`,
     }
   }
 
+  /**
+   * Batch get pod events
+   */
+  async getPodEventsBatch(
+    requests: Array<{ name: string; namespace: string }>,
+  ): Promise<
+    Array<{
+      name: string;
+      namespace: string;
+      events: k8s.CoreV1Event[];
+      error?: string;
+    }>
+  > {
+    logger.info("Batch getting pod events", { count: requests.length });
+
+    const startTime = Date.now();
+
+    const results = await Promise.all(
+      requests.map(async ({ name, namespace }) => {
+        try {
+          const response = await this.coreV1Api.listNamespacedEvent({
+            namespace,
+            fieldSelector: `involvedObject.name=${name}`,
+          });
+
+          return {
+            name,
+            namespace,
+            events: response.items || [],
+          };
+        } catch (error) {
+          logger.warn("Failed to get events for pod", { name, namespace });
+          return {
+            name,
+            namespace,
+            events: [],
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }),
+    );
+
+    const duration = Date.now() - startTime;
+    logger.info("Batch events fetch complete", {
+      count: requests.length,
+      duration,
+      avgPerPod: Math.round(duration / requests.length),
+    });
+
+    return results;
+  }
+
   async getPodEvents(
     name: string,
     namespace: string,
@@ -197,7 +442,7 @@ After installation, wait 1-2 minutes for metrics to become available.`,
   }
 
   // ============================================
-  // ENHANCED METRICS OPERATIONS
+  // OPTIMIZED METRICS OPERATIONS
   // ============================================
 
   /**
@@ -206,7 +451,7 @@ After installation, wait 1-2 minutes for metrics to become available.`,
    */
   async getPodMetrics(name?: string, namespace?: string): Promise<any | null> {
     try {
-      // Check if metrics server is available
+      // Check if metrics server is available (cached)
       const metricsAvailable = await this.isMetricsServerAvailable();
 
       if (!metricsAvailable) {
@@ -247,7 +492,7 @@ After installation, wait 1-2 minutes for metrics to become available.`,
         );
       } else if (namespace) {
         // Get metrics for all pods in a namespace
-        const response = await this.metricsApi.getPodMetrics(namespace);
+        const response: any = await this.metricsApi.getPodMetrics(namespace);
         return response;
       } else {
         // Get metrics for all pods across all namespaces
@@ -303,42 +548,33 @@ After installation, wait 1-2 minutes for metrics to become available.`,
     }
   }
 
-  /**
-   * Get pod metrics safely - returns null instead of throwing
-   * Useful for optional metrics display
-   */
-  async getPodMetricsSafe(
-    name: string,
-    namespace: string,
-  ): Promise<any | null> {
-    try {
-      return await this.getPodMetrics(name, namespace);
-    } catch (error: any) {
-      const errorMessage = error?.message || "";
-      if (errorMessage.includes("METRICS_UNAVAILABLE")) {
-        logger.debug("Metrics unavailable for pod (expected)", {
-          name,
-          namespace,
-        });
-        return null;
+  // ============================================
+  // NAMESPACE OPERATIONS (with caching)
+  // ============================================
+
+  async listNamespaces(useCache: boolean = true): Promise<k8s.V1Namespace[]> {
+    const cacheKey = this.getCacheKey("listNamespaces");
+
+    if (useCache) {
+      const cached = this.getFromCache<k8s.V1Namespace[]>(cacheKey);
+      if (cached) return cached;
+    }
+
+    return this.deduplicateRequest(cacheKey, async () => {
+      try {
+        const response = await this.coreV1Api.listNamespace();
+        const namespaces = response.items || [];
+
+        if (useCache) {
+          this.setCache(cacheKey, namespaces);
+        }
+
+        return namespaces;
+      } catch (error) {
+        logger.error("Error listing namespaces", { error });
+        throw new Error(`Failed to list namespaces: ${error}`);
       }
-      // Re-throw other errors
-      throw error;
-    }
-  }
-
-  // ============================================
-  // NAMESPACE OPERATIONS
-  // ============================================
-
-  async listNamespaces(): Promise<k8s.V1Namespace[]> {
-    try {
-      const response = await this.coreV1Api.listNamespace();
-      return response.items || [];
-    } catch (error) {
-      logger.error("Error listing namespaces", { error });
-      throw new Error(`Failed to list namespaces: ${error}`);
-    }
+    });
   }
 
   // ============================================
@@ -443,9 +679,6 @@ After installation, wait 1-2 minutes for metrics to become available.`,
       return false;
     }
   }
-  // ============================================
-  // NODE METRICS
-  // ============================================
 
   async getNodeMetrics(): Promise<any[] | null> {
     try {
@@ -459,9 +692,6 @@ After installation, wait 1-2 minutes for metrics to become available.`,
       return null;
     }
   }
-  // ============================================
-  // VERSION
-  // ============================================
 
   async getClusterVersion(): Promise<string | null> {
     try {
@@ -473,6 +703,7 @@ After installation, wait 1-2 minutes for metrics to become available.`,
       return null;
     }
   }
+
   async getNodeUptimeHours(): Promise<number | null> {
     try {
       const nodes = await this.listNodes();
