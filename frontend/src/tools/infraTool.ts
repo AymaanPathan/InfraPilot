@@ -1,13 +1,10 @@
 import type { TamboTool } from "@tambo-ai/react";
+import { logger } from "@/components/DevConsole";
 
 /**
- * Infrastructure Command Tool - ENHANCED with AI Explanations (Phase E)
+ * Infrastructure Command Tool - WITH DEV CONSOLE LOGGING
  *
- * Now supports:
- * - Auto-detection of pod issues
- * - AI-powered explanations
- * - Triage reports
- * - Error analysis
+ * Now logs all internal operations to DevConsole for debugging
  */
 export const infraCommandTool: TamboTool<{
   input: string;
@@ -15,7 +12,7 @@ export const infraCommandTool: TamboTool<{
 }> = {
   name: "infra_command",
   description:
-    "Execute Kubernetes operations using natural language with AI-powered explanations. Handles pod listing, logs, events, deployments, services, health monitoring, and automatic issue detection via MCP backend.",
+    "Execute Kubernetes operations using natural language with AI-powered explanations and full debug logging.",
 
   inputSchema: {
     type: "object",
@@ -23,12 +20,11 @@ export const infraCommandTool: TamboTool<{
       input: {
         type: "string",
         description:
-          "Natural language command (e.g., 'show all pods', 'get logs for api-server', 'why is payment-service crashing?', 'analyze cluster health')",
+          "Natural language command (e.g., 'show all pods', 'get logs for api-server')",
       },
       explain: {
         type: "boolean",
-        description:
-          "Whether to include AI explanation of the results (auto-detects if not specified)",
+        description: "Whether to include AI explanation",
         default: false,
       },
     },
@@ -44,13 +40,11 @@ export const infraCommandTool: TamboTool<{
       },
       props: {
         type: "object",
-        description:
-          "Props to pass to the component (includes data + optional explanation)",
+        description: "Props to pass to the component",
       },
       explanation: {
         type: "string",
-        description:
-          "AI-generated explanation (if auto-triggered or requested)",
+        description: "AI-generated explanation",
       },
       autoExplained: {
         type: "boolean",
@@ -61,12 +55,14 @@ export const infraCommandTool: TamboTool<{
   },
 
   async tool({ input, explain = false }) {
-    console.log("🟢 infra_command invoked", { input, explain });
+    // Group logs for this command
+    logger.group(`Command: "${input}"`);
+    logger.info("tool", "infra_command invoked", { input, explain });
 
     try {
       // Validate input
       if (!input || typeof input !== "string" || input.trim().length === 0) {
-        console.error("❌ Invalid input:", input);
+        logger.error("tool", "Invalid input received", { input });
 
         return {
           componentName: "ErrorDisplay",
@@ -77,15 +73,23 @@ export const infraCommandTool: TamboTool<{
         };
       }
 
-      console.log("📡 Calling backend at http://localhost:8000/api/ai/command");
+      logger.info("tool", "Input validated ✓");
 
-      // Call backend API with timeout
+      // Call backend
+      const apiUrl = "http://localhost:8000/api/ai/command";
+      logger.api("POST", apiUrl);
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => {
+        logger.warn("tool", "Request timeout - aborting");
+        controller.abort();
+      }, 30000);
 
       let response: Response;
       try {
-        response = await fetch("http://localhost:8000/api/ai/command", {
+        const startTime = Date.now();
+
+        response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -93,10 +97,20 @@ export const infraCommandTool: TamboTool<{
           body: JSON.stringify({ input, explain }),
           signal: controller.signal,
         });
+
         clearTimeout(timeoutId);
+
+        const duration = Date.now() - startTime;
+        logger.api("POST", apiUrl, response.status);
+        logger.info("tool", `Request completed in ${duration}ms`);
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        console.error("❌ Fetch failed:", fetchError);
+        logger.error("tool", "Fetch failed", {
+          error:
+            fetchError instanceof Error
+              ? fetchError.message
+              : String(fetchError),
+        });
 
         return {
           componentName: "ErrorDisplay",
@@ -111,15 +125,17 @@ export const infraCommandTool: TamboTool<{
         };
       }
 
-      console.log("📨 Response status:", response.status);
+      logger.info("tool", `Response status: ${response.status}`);
 
       // Parse response
       let data: any;
       try {
         const responseText = await response.text();
-        console.log("📄 Response length:", responseText.length);
+        logger.debug("tool", `Response length: ${responseText.length} bytes`);
 
         if (!responseText || responseText.trim().length === 0) {
+          logger.error("tool", "Empty response from backend");
+
           return {
             componentName: "ErrorDisplay",
             props: {
@@ -131,14 +147,19 @@ export const infraCommandTool: TamboTool<{
         }
 
         data = JSON.parse(responseText);
-        console.log("✅ Parsed JSON:", {
+        logger.success("tool", "Response parsed successfully", {
           ok: data.ok,
           component: data.ui?.componentName,
           hasExplanation: !!data.meta?.explanation,
-          autoExplained: data.meta?.autoExplained,
         });
       } catch (parseError) {
-        console.error("❌ JSON parse failed:", parseError);
+        logger.error("tool", "JSON parse failed", {
+          error:
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError),
+        });
+
         return {
           componentName: "ErrorDisplay",
           props: {
@@ -150,7 +171,11 @@ export const infraCommandTool: TamboTool<{
 
       // Check for errors
       if (!response.ok || data.ok === false) {
-        console.error("❌ Backend error:", data);
+        logger.error("tool", "Backend returned error", {
+          error: data.error,
+          code: data.code,
+        });
+
         return {
           componentName: "ErrorDisplay",
           props: {
@@ -163,9 +188,14 @@ export const infraCommandTool: TamboTool<{
         };
       }
 
-      // Validate UI structure
+      // Validate response structure
       if (!data.ui || !data.ui.componentName || !data.ui.props) {
-        console.error("❌ Invalid response structure:", data);
+        logger.error("tool", "Invalid response structure", {
+          hasUI: !!data.ui,
+          hasComponent: !!data.ui?.componentName,
+          hasProps: !!data.ui?.props,
+        });
+
         return {
           componentName: "ErrorDisplay",
           props: {
@@ -175,41 +205,54 @@ export const infraCommandTool: TamboTool<{
         };
       }
 
-      console.log("✅ Success - returning component:", {
-        componentName: data.ui.componentName,
-        propsKeys: Object.keys(data.ui.props),
-        explanation: data.meta?.explanation ? "present" : "none",
-      });
-
-      // ENHANCEMENT: Include explanation in props if available
+      // Build props with explanation
       const props = {
         ...data.ui.props,
-        // Add explanation metadata if present
         ...(data.meta?.explanation && {
           explanation: data.meta.explanation,
           autoExplained: data.meta.autoExplained || false,
         }),
       };
 
-      // Return the component info - Tambo will handle rendering
+      logger.success("tool", "Component ready to render", {
+        component: data.ui.componentName,
+        propsKeys: Object.keys(props),
+        hasExplanation: !!props.explanation,
+      });
+
+      // Log component details
+      if (props.pods) {
+        logger.info("tool", `Rendering ${props.pods.length} pods`);
+      }
+      if (props.logs) {
+        const logCount = Array.isArray(props.logs)
+          ? props.logs.length
+          : props.logs.split("\n").length;
+        logger.info("tool", `Rendering ${logCount} log lines`);
+      }
+
+      logger.group("━━━ Tool execution complete ━━━");
+
       return {
         componentName: data.ui.componentName,
         props,
-        // Also return at top level for tool output schema
         ...(data.meta?.explanation && {
           explanation: data.meta.explanation,
           autoExplained: data.meta.autoExplained,
         }),
       };
     } catch (error) {
-      console.error("💥 Unexpected error:", error);
+      logger.error("tool", "Unexpected error", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
 
       return {
         componentName: "ErrorDisplay",
         props: {
           error:
             error instanceof Error ? error.message : "Unknown error occurred",
-          hint: "An unexpected error occurred. Check browser console.",
+          hint: "An unexpected error occurred. Check DevConsole for details.",
           details: error instanceof Error ? error.stack : String(error),
         },
       };

@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TamboClientProvider } from "./providers";
+import { DevConsole } from "@/components/DevConsole";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,10 +25,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning
+      <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <TamboClientProvider>{children}</TamboClientProvider>
+
+        <DevConsole
+          defaultExpanded={false}
+          position="bottom"
+          maxLogs={1000}
+          persistLogs={true}
+        />
       </body>
     </html>
   );
