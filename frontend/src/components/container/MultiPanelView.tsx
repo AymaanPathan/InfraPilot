@@ -46,9 +46,9 @@ export function MultiPanelView({
 
         <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
           <div className="border-b border-neutral-200 bg-neutral-50 p-1 flex gap-1">
-            {panels.map((panel, index) => (
+            {panels?.map((panel, index) => (
               <button
-                key={panel.id}
+                key={panel?.id}
                 onClick={() => setActiveTab(index)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeTab === index
@@ -56,13 +56,13 @@ export function MultiPanelView({
                     : "text-neutral-600 hover:bg-neutral-100"
                 }`}
               >
-                {panel.title || `Step ${index + 1}`}
+                {panel?.title || `Step ${index + 1}`}
               </button>
             ))}
           </div>
 
           <div className="p-4">
-            <PanelContent panel={panels[activeTab]} />
+            <PanelContent panel={panels?.[activeTab]} />
           </div>
         </div>
       </div>
@@ -79,15 +79,15 @@ export function MultiPanelView({
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {panels.map((panel, index) => (
+          {panels?.map((panel, index) => (
             <div
-              key={panel.id}
+              key={panel?.id}
               className="bg-white border border-neutral-200 rounded-xl overflow-hidden"
             >
               <div className="border-b border-neutral-200 bg-neutral-50 p-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
                   <Grid className="w-4 h-4 text-neutral-600" />
-                  {panel.title || `Step ${index + 1}`}
+                  {panel?.title || `Step ${index + 1}`}
                 </h3>
               </div>
               <div className="p-4">
@@ -108,15 +108,15 @@ export function MultiPanelView({
         </div>
       )}
 
-      {panels.map((panel, index) => (
+      {panels?.map((panel, index) => (
         <div
-          key={panel.id}
+          key={panel?.id}
           className="bg-white border border-neutral-200 rounded-xl overflow-hidden"
         >
           <div className="border-b border-neutral-200 bg-neutral-50 p-3">
             <h3 className="flex items-center gap-2 font-semibold text-neutral-900">
               <Layers className="w-5 h-5 text-neutral-600" />
-              {panel.title || `Step ${index + 1}`}
+              {panel?.title || `Step ${index + 1}`}
             </h3>
           </div>
           <div className="p-4">
@@ -128,11 +128,11 @@ export function MultiPanelView({
   );
 }
 
-function PanelContent({ panel }: { panel?: any }) {
-  if (!panel.success) {
+function PanelContent({ panel = {} }: { panel?: any }) {
+  if (!panel?.success) {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-        ✗ Step failed: {panel.error || "Unknown error"}
+        ✗ Step failed: {panel?.error || "Unknown error"}
       </div>
     );
   }
@@ -156,8 +156,8 @@ function PanelContent({ panel }: { panel?: any }) {
   if (data?.events) {
     return (
       <EventsTimeline
-        events={data.events}
-        podName={data.podName || data._itemContext?.name}
+        events={data?.events}
+        podName={data?.podName || data._itemContext?.name}
       />
     );
   }
