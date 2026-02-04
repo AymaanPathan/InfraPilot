@@ -175,7 +175,7 @@ export async function generateStructuredPlan(
 
     console.log("🚀 Calling Groq API...");
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: process.env.AI_MODEL!,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userInput },

@@ -12,10 +12,12 @@ import {
 } from "lucide-react";
 
 /**
- * MultiPanelView Component - FOR LOG & EVENT COMPARISONS
+ * MultiPanelView Component - FIXED LOG DISPLAY
  *
- * Displays multiple results side-by-side in panels.
- * Perfect for "compare logs of X and Y" or "show pods and their logs"
+ * Key Fix: Properly extracts logs data from the panel.data object
+ * The issue was that panel.data contains the full transformed object
+ * with structure: { podName, namespace, logs, container, containers }
+ * But we need to extract just the logs array and pass it correctly.
  */
 
 export const multiPanelViewSchema = z.object({
@@ -27,6 +29,7 @@ export const multiPanelViewSchema = z.object({
         data: z.any().nullable(),
         success: z.boolean(),
         error: z.string().optional(),
+        podName: z.string().optional(), // Added to support explicit pod name
       }),
     )
     .optional(),
@@ -72,6 +75,14 @@ export function MultiPanelView({
   // Detect panel type from data
   const panelType = detectPanelType(successfulPanels[0]?.data);
 
+  console.log("🔍 MultiPanelView Debug:", {
+    totalPanels: panelData.length,
+    successfulPanels: successfulPanels.length,
+    errorPanels: errorPanels.length,
+    detectedType: panelType,
+    firstPanelData: successfulPanels[0]?.data,
+  });
+
   return (
     <div className="space-y-6">
       {/* Error Summary */}
@@ -88,7 +99,7 @@ export function MultiPanelView({
                   <div key={index} className="flex items-center gap-2">
                     <XCircle className="w-4 h-4" />
                     <span className="font-mono">
-                      {(panel.podName as any) || `Panel ${panel.step}`}
+                      {panel.podName || panel.id || `Panel ${panel.step}`}
                     </span>
                     <span className="text-amber-600">
                       - {panel.error || "Unknown error"}
@@ -139,8 +150,35 @@ function PanelCard({
   index: number;
   type: "logs" | "events" | "generic";
 }) {
-  const podName = panel.data?.podName || panel.podName || `Panel ${index + 1}`;
+  // CRITICAL FIX: Extract pod name and namespace from the data object
+  // The panel.data has structure: { podName, namespace, logs, container, containers }
+  const podName =
+    panel.data?.podName || panel.podName || panel.id || `Panel ${index + 1}`;
   const namespace = panel.data?.namespace || "default";
+
+  // CRITICAL FIX: Extract logs properly
+  // The logs could be:
+  // 1. An array of strings: panel.data.logs = ["line 1", "line 2"]
+  // 2. A string with newlines: panel.data.logs = "line 1\nline 2"
+  // 3. Directly in panel.data if it's a string: panel.data = "line 1\nline 2"
+  const extractedLogs =
+    panel.data?.logs || // First try the logs property
+    (typeof panel.data === "string" ? panel.data : []) || // Then try if data itself is a string
+    [];
+
+  console.log(`📋 Panel ${index + 1} (${podName}) Debug:`, {
+    podName,
+    namespace,
+    dataType: typeof panel.data,
+    hasLogsProperty: !!panel.data?.logs,
+    logsType: typeof extractedLogs,
+    logsLength: Array.isArray(extractedLogs)
+      ? extractedLogs.length
+      : typeof extractedLogs === "string"
+        ? extractedLogs.split("\n").length
+        : 0,
+    sampleData: JSON.stringify(panel.data).substring(0, 200),
+  });
 
   return (
     <div className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
@@ -174,10 +212,11 @@ function PanelCard({
       <div className="flex-1 overflow-hidden">
         {type === "logs" && (
           <LogsViewer
-            logs={panel.data?.logs || []}
+            logs={extractedLogs}
             podName={podName}
             namespace={namespace}
             container={panel.data?.container}
+            containers={panel.data?.containers}
             showTimestamps={true}
             highlightErrors={true}
           />
@@ -202,7 +241,7 @@ function PanelCard({
 function detectPanelType(data: any): "logs" | "events" | "generic" {
   if (!data) return "generic";
 
-  // Check for logs
+  // Check for logs - logs property takes precedence
   if (data.logs || typeof data === "string") {
     return "logs";
   }

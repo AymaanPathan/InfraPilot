@@ -320,7 +320,7 @@ export async function explainPodFailure(podData: {
     const context = buildEnhancedPodContext(podData);
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: process.env.AI_MODEL!,
       messages: [
         { role: "system", content: POD_FAILURE_EXPERT_PROMPT },
         {
@@ -377,7 +377,7 @@ export async function analyzeLogs(
     const truncatedLogs = logs.length > 4000 ? logs.slice(-4000) : logs;
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: process.env.AI_MODEL!,
       messages: [
         { role: "system", content: LOG_ANALYSIS_PROMPT },
         {
@@ -438,7 +438,7 @@ export async function analyzeEventTimeline(
       .join("\n");
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: process.env.AI_MODEL!,
       messages: [
         { role: "system", content: EVENT_TIMELINE_PROMPT },
         {
@@ -499,7 +499,7 @@ export async function assessPodHealth(pods: any[]): Promise<string> {
       .join("\n");
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: process.env.AI_MODEL!,
       messages: [
         { role: "system", content: HEALTH_CHECK_PROMPT },
         {

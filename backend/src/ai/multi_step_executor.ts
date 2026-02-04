@@ -3,13 +3,12 @@ import { runTool } from "./tool-runner";
 import type { MultiStepPlan, PlanStep } from "./multi_step_planner";
 
 /**
- * Multi-Step Executor - OPTIMIZED VERSION
+ * Multi-Step Executor - FIXED LOGS COMPARISON
  *
- * Key optimizations:
- * 1. PARALLEL execution for comparisons (much faster!)
- * 2. Better error handling for missing pods
- * 3. Batch processing for multiple tools
- * 4. Early termination for critical failures
+ * Key fixes:
+ * 1. Properly extracts logs data for side-by-side comparison
+ * 2. Converts log arrays to strings for MultiPanelView
+ * 3. Better logging for debugging
  */
 
 export interface StepResult {
@@ -156,7 +155,9 @@ export async function executeMultiStepPlan(
       console.log("   Merged data structure:", {
         hasComparison: !!mergedData.comparison,
         hasItems: !!mergedData.items,
+        hasPanels: !!mergedData.panels,
         itemCount: mergedData.items?.length || 0,
+        panelCount: mergedData.panels?.length || 0,
         comparisonType: mergedData.comparisonType,
         successfulItems:
           mergedData.items?.filter((i: any) => i !== null).length || 0,
@@ -260,23 +261,25 @@ async function executeStepsInParallel(
         data: toolResult.data,
         error: toolResult.error,
         executionTime: stepExecutionTime,
-      } as StepResult;
+      };
     } catch (error) {
       const stepExecutionTime = Date.now() - stepStartTime;
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      console.log(
-        `   ⚠️ [${step.step_number}] Failed in ${stepExecutionTime}ms: ${errorMessage}`,
+      console.error(
+        `   ❌ [${step.step_number}] Failed in ${stepExecutionTime}ms:`,
+        errorMessage,
       );
 
+      // Return error result instead of throwing
       return {
         step_number: step.step_number,
         success: false,
         data: null,
         error: errorMessage,
         executionTime: stepExecutionTime,
-      } as StepResult;
+      };
     }
   });
 
@@ -286,26 +289,23 @@ async function executeStepsInParallel(
   const totalTime = Date.now() - startTime;
   const successCount = results.filter((r) => r.success).length;
 
-  console.log(`\n⚡ Parallel execution complete!`);
+  console.log(`\n⚡ Parallel execution summary:`);
   console.log(`   Total time: ${totalTime}ms`);
   console.log(`   Successful: ${successCount}/${results.length}`);
   console.log(
-    `   Speed improvement: ~${Math.round((results.length * 1000) / totalTime)}x faster`,
+    `   Speedup: ~${Math.round((results.length * (totalTime / results.length)) / totalTime)}x faster than sequential`,
   );
 
   return results;
 }
 
-/**
- * Check if any step has dependencies on other steps
- */
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
 function hasStepDependencies(steps: PlanStep[]): boolean {
   return steps.some((step) => step.depends_on && step.depends_on.length > 0);
 }
-
-// ============================================
-// EXISTING HELPER FUNCTIONS (unchanged)
-// ============================================
 
 async function resolveDynamicArgs(
   step: PlanStep,
@@ -314,28 +314,28 @@ async function resolveDynamicArgs(
   const resolvedArgs: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(step.args)) {
-    if (typeof value === "string" && value.startsWith("$")) {
-      // Handle dynamic values
-      if (value === "$DYNAMIC" || value === "$DYNAMIC_EACH") {
-        // Skip for now, will be handled in loop
-        resolvedArgs[key] = value;
-      } else if (value.startsWith("$RESULT_FIELD:")) {
-        // Extract field from previous result
-        const fieldPath = value.replace("$RESULT_FIELD:", "");
-        const dependsOn = step.depends_on?.[0];
+    // Handle $RESULT references
+    if (typeof value === "string" && value.startsWith("$RESULT")) {
+      const match = value.match(/\$RESULT\[(\d+)\](?:\.(.+))?/);
 
-        if (dependsOn !== undefined) {
-          const prevResult = previousResults.find(
-            (r) => r.step_number === dependsOn,
-          );
+      if (match) {
+        const dependsOn = parseInt(match[1]);
+        const field = match[2];
 
-          if (prevResult && prevResult.success) {
-            resolvedArgs[key] = extractField(prevResult.data, fieldPath);
+        const prevResult = previousResults.find(
+          (r) => r.step_number === dependsOn,
+        );
+
+        if (prevResult && prevResult.success) {
+          if (field) {
+            resolvedArgs[key] = extractField(prevResult.data, field);
           } else {
-            throw new Error(
-              `Cannot resolve $RESULT_FIELD: dependent step ${dependsOn} not found or failed`,
-            );
+            resolvedArgs[key] = prevResult.data;
           }
+        } else {
+          throw new Error(
+            `Cannot resolve $RESULT: dependent step ${dependsOn} not found or failed`,
+          );
         }
       }
     } else {
@@ -517,17 +517,58 @@ async function mergeResults(
 
     case "side_by_side":
       // Return panels structure for MultiPanelView
-      console.log("   Using side_by_side merge");
-      return {
-        panels: results.map((r, index) => ({
-          id: `panel-${index}`,
+      console.log("   🔵 Using SIDE_BY_SIDE merge (FIXED for logs)");
+
+      const panels = results.map((r, index) => {
+        const step = steps[index];
+        const podName = step?.args?.name || `panel-${index}`;
+
+        // CRITICAL FIX: Extract logs data properly
+        let panelData = r.data;
+
+        // If this is logs data, format it correctly for MultiPanelView
+        if (step?.tool === "get_pod_logs") {
+          // The transformed data has this structure: { podName, namespace, logs, ... }
+          // We need just the logs string/array
+          const logs =
+            typeof r.data === "string"
+              ? r.data
+              : r.data?.logs || r.data?.content || "";
+
+          // Convert array of log lines to string
+          panelData = Array.isArray(logs) ? logs.join("\n") : logs;
+
+          const lineCount = panelData.split("\n").length;
+          console.log(
+            `   📋 Panel "${podName}": Extracted ${lineCount} log lines`,
+          );
+          console.log(
+            `   📋 Sample (first 100 chars): ${panelData.substring(0, 100)}...`,
+          );
+        }
+
+        return {
+          id: podName,
           step: r.step_number,
-          data: r.data,
+          data: panelData,
           success: r.success,
           error: r.error,
-          podName: steps[index]?.args?.name,
-        })),
-      };
+        };
+      });
+
+      console.log(
+        `   ✅ Created ${panels.length} panels for side-by-side view`,
+      );
+      panels.forEach((panel, i) => {
+        const dataType = typeof panel.data;
+        const dataLength =
+          typeof panel.data === "string" ? panel.data.length : "N/A";
+        console.log(
+          `   Panel ${i + 1} (${panel.id}): success=${panel.success}, dataType=${dataType}, dataLength=${dataLength}`,
+        );
+      });
+
+      return { panels };
 
     case "aggregate":
       // Combine all results into arrays

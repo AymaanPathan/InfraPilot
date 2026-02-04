@@ -3,7 +3,10 @@ import logger from "../utils/logger";
 import { getToolSchemasForPlanner, TOOL_REGISTRY } from "./ToolsRegistry";
 
 /**
- * Multi-Step Planner Service - FIXED LOG COMPARISON
+ * Multi-Step Planner Service - FIXED "AND" PATTERN DETECTION
+ *
+ * Key Fix: Now recognizes "get logs for X and Y" as a comparison
+ * even without the explicit word "compare"
  */
 
 const groq = new Groq({
@@ -43,13 +46,107 @@ export function buildMultiStepPrompt(): string {
    - For pod list: use "get_pods" NOT "list_pods"
    - Tool names are case-sensitive and must match exactly
 6. **DO NOT INVENT TOOLS**: There are NO tools called "analyze_logs", "assess_health", "explain_failures", etc.
-   - For "explain" requests: Use the actual data tool (get_pod_logs, get_pod_events) with explanation_needed: true
-   - The backend will automatically analyze the data and provide explanations
-   - NEVER create a second step for analysis - just set explanation_needed flag
 
-# COMPARISON QUERIES (VERY IMPORTANT!)
+# CRITICAL: "AND" PATTERN DETECTION (MOST IMPORTANT!)
 
-When user asks to "compare" pods/resources, you MUST identify WHAT they want to compare:
+When user mentions TWO pod names connected by "and", this is ALWAYS a multi-step comparison:
+
+## Pattern 1: "get/show logs for X and Y"
+User: "get logs for payment-service and billing-service"
+User: "show logs of pod-a and pod-b"  
+User: "logs for db-error-app-6488467855-lg8v5 and test-api-69d598778d-4txc8"
+→ ALWAYS multi-step with side_by_side!
+
+## Pattern 2: "compare logs of X and Y"  
+User: "compare logs of payment and billing"
+→ Same as Pattern 1, just explicit
+
+## Pattern 3: "get/show events for X and Y"
+User: "show events for pod-a and pod-b"
+→ Multi-step with side_by_side
+
+**DETECTION RULE:**
+If you see TWO pod names in the query with "and" between them:
+→ is_multi_step: true
+→ Create a step for EACH pod
+→ merge_strategy: "side_by_side"
+→ final_component: "MultiPanelView"
+
+# CORRECT MULTI-STEP EXAMPLES
+
+## Example 1: "get logs for X and Y" (NO "compare" keyword!)
+User: "get logs for payment-service and billing-service"
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "get_pod_logs",
+      "args": {"name": "payment-service", "namespace": "default", "tail": 100},
+      "description": "Get logs for payment-service"
+    },
+    {
+      "step_number": 2,
+      "tool": "get_pod_logs",
+      "args": {"name": "billing-service", "namespace": "default", "tail": 100},
+      "description": "Get logs for billing-service"
+    }
+  ],
+  "merge_strategy": "side_by_side",
+  "final_component": "MultiPanelView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+## Example 2: "show logs of A and B"
+User: "show logs of db-error-app-6488467855-lg8v5 and test-api-69d598778d-4txc8"
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "get_pod_logs",
+      "args": {"name": "db-error-app-6488467855-lg8v5", "namespace": "default", "tail": 100},
+      "description": "Get logs for db-error-app-6488467855-lg8v5"
+    },
+    {
+      "step_number": 2,
+      "tool": "get_pod_logs",
+      "args": {"name": "test-api-69d598778d-4txc8", "namespace": "default", "tail": 100},
+      "description": "Get logs for test-api-69d598778d-4txc8"
+    }
+  ],
+  "merge_strategy": "side_by_side",
+  "final_component": "MultiPanelView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+## Example 3: Explicit "compare"
+User: "compare logs of payment and billing"
+{
+  "is_multi_step": true,
+  "steps": [
+    {
+      "step_number": 1,
+      "tool": "get_pod_logs",
+      "args": {"name": "payment", "namespace": "default", "tail": 100},
+      "description": "Get logs for payment pod"
+    },
+    {
+      "step_number": 2,
+      "tool": "get_pod_logs",
+      "args": {"name": "billing", "namespace": "default", "tail": 100},
+      "description": "Get logs for billing pod"
+    }
+  ],
+  "merge_strategy": "side_by_side",
+  "final_component": "MultiPanelView",
+  "confidence": "high",
+  "explanation_needed": false
+}
+
+# COMPARISON QUERIES
 
 ## Comparing METRICS/CPU/MEMORY:
 User: "compare cpu of payment and billing"
@@ -80,38 +177,10 @@ Example:
   "explanation_needed": false
 }
 
-## Comparing LOGS:
-User: "compare logs of payment and billing"
-User: "compare logs of app-error-pod and cpu-intensive-78dd9b95d5-qb5nf"
-User: "show logs of X and Y side by side"
-→ Use "get_pod_logs" for each pod
-
-Example:
-{
-  "is_multi_step": true,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "get_pod_logs",
-      "args": {"name": "payment", "namespace": "default", "tail": 100},
-      "description": "Get logs for payment pod"
-    },
-    {
-      "step_number": 2,
-      "tool": "get_pod_logs",
-      "args": {"name": "billing", "namespace": "default", "tail": 100},
-      "description": "Get logs for billing pod"
-    }
-  ],
-  "merge_strategy": "side_by_side",
-  "final_component": "MultiPanelView",
-  "confidence": "high",
-  "explanation_needed": false
-}
-
 ## Comparing EVENTS:
 User: "compare events of X and Y"
 User: "why are X and Y failing"
+User: "show events for X and Y"
 → Use "get_pod_events" for each pod
 
 Example:
@@ -137,20 +206,20 @@ Example:
   "explanation_needed": true
 }
 
-# KEY RULE FOR COMPARISONS:
-- If user mentions "logs" → use get_pod_logs
-- If user mentions "events" → use get_pod_events  
-- If user mentions "cpu", "memory", "metrics", "usage" → use describe_pod
-- If user just says "compare X and Y" with no specific type → use describe_pod (default to metrics)
+# KEY RULES FOR COMPARISONS:
+- If user mentions "logs" → use get_pod_logs + side_by_side + MultiPanelView
+- If user mentions "events" → use get_pod_events + side_by_side + MultiPanelView  
+- If user mentions "cpu", "memory", "metrics", "usage" → use describe_pod + compare + ComparisonView
+- If user says "X and Y" with TWO pod names → ALWAYS multi-step (even without "compare")!
 
-# MERGE STRATEGY FOR COMPARISONS:
+# MERGE STRATEGY:
 - Logs comparison → merge_strategy: "side_by_side", final_component: "MultiPanelView"
 - Events comparison → merge_strategy: "side_by_side", final_component: "MultiPanelView"
 - Metrics comparison → merge_strategy: "compare", final_component: "ComparisonView"
 
 # OUTPUT STRUCTURE
 
-## Single-Step Response:
+## Single-Step Response (only when user asks for ONE pod):
 {
   "is_multi_step": false,
   "steps": [{
@@ -165,250 +234,44 @@ Example:
   "explanation_needed": true/false
 }
 
-## Multi-Step Response:
+## Multi-Step Response (when TWO+ pods mentioned):
 {
   "is_multi_step": true,
   "steps": [
     {
       "step_number": 1,
-      "tool": "get_filtered_pods",
-      "args": {"status": ["Failed"]},
-      "description": "Get failing pods"
+      "tool": "get_pod_logs",
+      "args": {"name": "pod1", "namespace": "default", "tail": 100},
+      "description": "Get logs for pod1"
     },
     {
       "step_number": 2,
       "tool": "get_pod_logs",
-      "args": {"name": "$DYNAMIC", "namespace": "default"},
-      "depends_on": [1],
-      "description": "Get logs for each failing pod"
+      "args": {"name": "pod2", "namespace": "default", "tail": 100},
+      "description": "Get logs for pod2"
     }
   ],
   "merge_strategy": "side_by_side",
   "final_component": "MultiPanelView",
   "confidence": "high",
-  "explanation_needed": true
+  "explanation_needed": false
 }
 
 # AVAILABLE TOOLS
 
 ${toolSchemas}
 
-# MERGE STRATEGIES
-
-1. **sequential**: Execute steps one by one, show final result only
-   - Use for: "get logs then explain them"
-   
-2. **compare**: Execute steps in parallel, compare results in table
-   - Use for: "compare metrics/cpu/memory of X and Y"
-   - Component: ComparisonView
-   
-3. **aggregate**: Combine results into single view
-   - Use for: "show all failed pods and their events"
-   
-4. **side_by_side**: Show multiple results in panels
-   - Use for: "compare logs of X and Y"
-   - Use for: "show pods and their logs"
-   - Component: MultiPanelView
-
-# FINAL COMPONENTS
-
-- **MultiPanelView**: Side-by-side panels (for "compare logs", "show X and Y")
-- **ComparisonView**: Comparison table (for "compare metrics/cpu/memory") 
-- **AggregateView**: Combined results (for "all X with their Y")
-- Standard components: PodGrid, LogsViewer, etc.
-
-# DYNAMIC ARGUMENTS
-
-Use "$DYNAMIC" for args that depend on previous step results:
-- "$DYNAMIC" → Will be populated from previous step
-- "$DYNAMIC_EACH" → Loop over results from previous step
-- "$RESULT_FIELD:pods" → Extract specific field from previous result
-
-# MULTI-STEP EXAMPLES
-
-## Example 1: Show failing pods and their logs
-User: "show failing pods and their logs"
-{
-  "is_multi_step": true,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "get_filtered_pods",
-      "args": {"status": ["Failed", "CrashLoopBackOff"]},
-      "description": "Get all failing pods"
-    },
-    {
-      "step_number": 2,
-      "tool": "get_pod_logs",
-      "args": {
-        "name": "$DYNAMIC_EACH",
-        "namespace": "$DYNAMIC_EACH",
-        "tail": 100
-      },
-      "depends_on": [1],
-      "description": "Get logs for each failing pod"
-    }
-  ],
-  "merge_strategy": "side_by_side",
-  "final_component": "MultiPanelView",
-  "confidence": "high",
-  "explanation_needed": true
-}
-
-## Example 2: Compare CPU of two pods
-User: "compare cpu of payment and billing pods"
-{
-  "is_multi_step": true,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "describe_pod",
-      "args": {"name": "payment", "namespace": "default"},
-      "description": "Get metrics for payment pod"
-    },
-    {
-      "step_number": 2,
-      "tool": "describe_pod",
-      "args": {"name": "billing", "namespace": "default"},
-      "description": "Get metrics for billing pod"
-    }
-  ],
-  "merge_strategy": "compare",
-  "final_component": "ComparisonView",
-  "confidence": "high",
-  "explanation_needed": false
-}
-
-## Example 2b: Compare LOGS of two pods (IMPORTANT!)
-User: "compare logs of payment and billing pods"
-User: "compare logs of app-error-pod and cpu-intensive-78dd9b95d5-qb5nf"
-{
-  "is_multi_step": true,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "get_pod_logs",
-      "args": {"name": "payment", "namespace": "default", "tail": 100},
-      "description": "Get logs for payment pod"
-    },
-    {
-      "step_number": 2,
-      "tool": "get_pod_logs",
-      "args": {"name": "billing", "namespace": "default", "tail": 100},
-      "description": "Get logs for billing pod"
-    }
-  ],
-  "merge_strategy": "side_by_side",
-  "final_component": "MultiPanelView",
-  "confidence": "high",
-  "explanation_needed": false
-}
-
-## Example 2c: Get CPU for single pod
-User: "get CPU usage for pod nginx"
-{
-  "is_multi_step": false,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "describe_pod",
-      "args": {"name": "nginx", "namespace": "default"},
-      "description": "Get pod details including CPU metrics"
-    }
-  ],
-  "merge_strategy": "sequential",
-  "final_component": "StatusSummary",
-  "confidence": "high",
-  "explanation_needed": false
-}
-
-## Example 3: Logs with explanation
-User: "get logs for nginx and explain errors"
-{
-  "is_multi_step": false,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "get_pod_logs",
-      "args": {"name": "nginx", "namespace": "default", "tail": 200},
-      "description": "Fetch nginx logs and auto-analyze for errors"
-    }
-  ],
-  "merge_strategy": "sequential",
-  "final_component": "LogsViewer",
-  "confidence": "high",
-  "explanation_needed": true
-}
-
-## Example 4: Multi-step aggregation
-User: "show all pods in production with their events"
-{
-  "is_multi_step": true,
-  "steps": [
-    {
-      "step_number": 1,
-      "tool": "get_pods",
-      "args": {"namespace": "production"},
-      "description": "Get all production pods"
-    },
-    {
-      "step_number": 2,
-      "tool": "get_pod_events",
-      "args": {
-        "name": "$DYNAMIC_EACH",
-        "namespace": "production"
-      },
-      "depends_on": [1],
-      "description": "Get events for each pod"
-    }
-  ],
-  "merge_strategy": "aggregate",
-  "final_component": "MultiPanelView",
-  "confidence": "high",
-  "explanation_needed": false
-}
-
 # DETECTION RULES
 
-Detect multi-step when user says:
-- "X and Y" → Two operations (e.g., "show pods and their logs")
-- "compare X and Y" → Comparison - USE CORRECT TOOL BASED ON WHAT'S BEING COMPARED:
-  - "compare logs" → use get_pod_logs + side_by_side + MultiPanelView
-  - "compare events" → use get_pod_events + side_by_side + MultiPanelView
-  - "compare cpu/memory/metrics" → use describe_pod + compare + ComparisonView
-- "show X with their Y" → Aggregation with loop (e.g., "show all pods with their events")
-- "all X and their Y" → Loop + aggregate
+**ALWAYS multi-step when:**
+- User mentions TWO or more pod names with "and" (e.g., "logs for X and Y")
+- User says "compare" with TWO items
+- User says "X and Y" or "X vs Y"
 
-Use SINGLE-STEP with explanation_needed=true when user says:
-- "explain" or "why" → Set explanation_needed: true, do NOT create multi-step
-- "analyze" → Set explanation_needed: true, do NOT create multi-step
-- User wants AI insight → Single tool + explanation flag
-
-CRITICAL: Do NOT create tools like "analyze_logs", "assess_health", or "explain_*" - these are handled automatically via the explanation_needed flag.
-
-# COMMON QUERIES TO TOOL MAPPING
-
-**Pod Metrics/CPU/Memory queries:**
-- "compare cpu" → use "describe_pod" (metrics comparison)
-- "compare memory" → use "describe_pod" (metrics comparison)
-- "compare metrics" → use "describe_pod" (metrics comparison)
-- "show memory" → use "describe_pod"
-- "resource usage" → use "get_resource_usage" (cluster-wide) or "describe_pod" (specific pod)
-
-**Log queries:**
-- "compare logs" → use "get_pod_logs" (log comparison)
-- "get logs" → use "get_pod_logs"
-- "show logs" → use "get_pod_logs"
-
-**Event queries:**
-- "compare events" → use "get_pod_events" (event comparison)
-- "why is X crashing" → use "get_pod_events"
-- "what happened" → use "get_pod_events"
-
-**Pod listing queries:**
-- "show pods" → use "get_pods"
-- "list pods" → use "get_pods"
-- "failing pods" → use "get_filtered_pods"
+**Single-step when:**
+- User mentions only ONE pod
+- No comparison implied
+- Simple query like "show all pods"
 
 Now parse the user's request:`;
 }
@@ -423,15 +286,22 @@ export async function generateMultiStepPlan(
   console.log("🔍 Checking if this is a comparison query...");
 
   const isComparisonQuery = /compare|versus|vs\.?/i.test(userInput);
+
+  // ENHANCED: Check for "and" pattern even without "compare"
+  const hasAndPattern = /\b(and|&)\b/i.test(userInput);
+
   const isLogComparison =
-    /compar[e\w]*\s+(?:\w+\s+){0,5}logs?/i.test(userInput) || // "compare ... logs"
-    /logs?\s+(?:\w+\s+){0,5}compar/i.test(userInput); // "logs ... compare"
+    /compar[e\w]*\s+(?:\w+\s+){0,5}logs?/i.test(userInput) ||
+    /logs?\s+(?:\w+\s+){0,5}compar/i.test(userInput) ||
+    (/logs?\s+(?:for|of|from)/i.test(userInput) && hasAndPattern); // NEW!
 
   const isEventComparison =
     /compar[e\w]*\s+(?:\w+\s+){0,5}events?/i.test(userInput) ||
-    /events?\s+(?:\w+\s+){0,5}compar/i.test(userInput);
+    /events?\s+(?:\w+\s+){0,5}compar/i.test(userInput) ||
+    (/events?\s+(?:for|of|from)/i.test(userInput) && hasAndPattern); // NEW!
 
   console.log("   Is comparison?", isComparisonQuery);
+  console.log("   Has 'and' pattern?", hasAndPattern);
   console.log("   Is log comparison?", isLogComparison);
   console.log("   Is event comparison?", isEventComparison);
 
@@ -444,7 +314,7 @@ export async function generateMultiStepPlan(
 
     console.log("🚀 Calling Groq API for multi-step planning...");
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: process.env.AI_MODEL!,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userInput },
@@ -498,6 +368,14 @@ export async function generateMultiStepPlan(
           plan.steps[0]?.tool,
         );
       }
+
+      // VALIDATION: If user had "and" pattern but planner made it single-step
+      if (hasAndPattern && !plan.is_multi_step) {
+        console.warn(
+          "   ⚠️ WARNING: User query has 'and' but planner returned single-step!",
+        );
+        console.warn("   This might be a planner error - query:", userInput);
+      }
     }
 
     console.log("   Execution time:", executionTime, "ms");
@@ -511,6 +389,7 @@ export async function generateMultiStepPlan(
         plan.merge_strategy === "compare" ||
         plan.merge_strategy === "side_by_side",
       isLogComparison,
+      hasAndPattern,
       executionTime,
     });
 

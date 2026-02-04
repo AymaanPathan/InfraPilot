@@ -465,7 +465,7 @@ router.get("/health", async (req: Request, res: Response) => {
       services: {
         planner: {
           enabled: !!process.env.GROQ_API_KEY,
-          model: "llama-3.1-8b-instant",
+          model: process.env.AI_MODEL!,
           status: "healthy",
           features: ["single-step", "multi-step", "comparison", "aggregation"],
         },

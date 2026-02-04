@@ -408,14 +408,24 @@ export function transformK8sResponse(
 ): any {
   switch (tool) {
     case "get_pods":
-    case "get_pod_health":
       return transformPodsList(k8sResponse);
+
+    case "get_pod_health":
+      return transformPodsForHealthMonitor(k8sResponse);
 
     case "get_logs":
-      return transformPodsList(k8sResponse);
+      return transformPodLogs(
+        k8sResponse,
+        args?.name || args?.pod_name,
+        args?.namespace,
+      );
 
     case "get_pod_logs":
-      return transformPodsForHealthMonitor(k8sResponse);
+      return transformPodLogs(
+        k8sResponse,
+        args?.name || args?.pod_name,
+        args?.namespace,
+      );
 
     case "get_pod_events":
       return transformPodEvents(k8sResponse, args?.name || args?.pod_name);
