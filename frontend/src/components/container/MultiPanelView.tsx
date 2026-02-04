@@ -22,10 +22,14 @@ export const multiPanelViewSchema = z.object({
   explanation: z.string().optional(),
 });
 
-type MultiPanelViewProps = z.infer<typeof multiPanelViewSchema>;
+type MultiPanelViewProps = {
+  panels?: z.infer<typeof multiPanelViewSchema>["panels"];
+  layout?: "tabs" | "grid" | "vertical";
+  explanation?: string;
+};
 
 export function MultiPanelView({
-  panels,
+  panels = [],
   layout = "tabs",
   explanation,
 }: MultiPanelViewProps) {
@@ -124,7 +128,7 @@ export function MultiPanelView({
   );
 }
 
-function PanelContent({ panel }: { panel: any }) {
+function PanelContent({ panel }: { panel?: any }) {
   if (!panel.success) {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -133,13 +137,13 @@ function PanelContent({ panel }: { panel: any }) {
     );
   }
 
-  const data = panel.data;
+  const data = panel?.data;
 
-  if (data.pods || Array.isArray(data)) {
+  if (data?.pods || Array.isArray(data)) {
     return <PodGrid pods={data.pods || data} />;
   }
 
-  if (data.logs || typeof data === "string") {
+  if (data?.logs || typeof data === "string") {
     return (
       <LogsViewer
         logs={data.logs || data}
@@ -149,7 +153,7 @@ function PanelContent({ panel }: { panel: any }) {
     );
   }
 
-  if (data.events) {
+  if (data?.events) {
     return (
       <EventsTimeline
         events={data.events}

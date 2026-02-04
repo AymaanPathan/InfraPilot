@@ -1,43 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Search,
-  Download,
-  Copy,
-  Check,
-  RefreshCw,
-  Filter,
   Terminal,
-  XCircle,
+  Copy,
+  Download,
+  RefreshCw,
+  Search,
+  Filter,
+  CheckCircle,
+  AlertTriangle,
+  X,
+  ChevronDown,
 } from "lucide-react";
-import { z } from "zod";
 
-// Zod schema for props validation
-export const logsViewerSchema = z.object({
-  logs: z.union([z.string(), z.array(z.string())]),
-  podName: z.string(),
-  namespace: z.string().optional().default("default"),
-  container: z.string().optional(),
-  showTimestamps: z.boolean().optional().default(true),
-  highlightErrors: z.boolean().optional().default(true),
-  explanation: z.string().optional(),
-  autoExplained: z.boolean().optional(),
-  tail: z.number().optional(),
-  follow: z.boolean().optional(),
-});
-
-type LogsViewerProps = z.infer<typeof logsViewerSchema>;
-
-interface LogLine {
-  lineNumber: number;
-  timestamp?: string;
-  level: "error" | "warn" | "info" | "debug" | "unknown";
-  content: string;
-  rawLine: string;
+interface LogsViewerProps {
+  logs: string | string[];
+  podName: string;
+  namespace?: string;
+  container?: string;
+  containers?: string[];
+  showTimestamps?: boolean;
+  highlightErrors?: boolean;
+  onRefresh?: () => void;
+  onContainerChange?: (container: string) => void;
 }
 
 export function LogsViewer({
@@ -45,38 +31,40 @@ export function LogsViewer({
   podName,
   namespace = "default",
   container,
+  containers = [],
   showTimestamps = true,
   highlightErrors = true,
-  explanation,
-  autoExplained,
+  onRefresh,
+  onContainerChange,
 }: LogsViewerProps) {
+  const [selectedContainer, setSelectedContainer] = useState(
+    container || containers[0] || "",
+  );
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterLevel, setFilterLevel] = useState<string>("all");
+  const [showOnlyErrors, setShowOnlyErrors] = useState(false);
   const [copied, setCopied] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parse logs into structured format
-  const parsedLogs = useMemo(() => {
-    const logLines = Array.isArray(logs) ? logs : logs.split("\n");
-    return logLines
-      .filter((line) => line.trim().length > 0)
-      .map((line, index) => parseLine(line, index + 1));
-  }, [logs]);
+  // Parse logs to array
+  const logLines = Array.isArray(logs)
+    ? logs
+    : typeof logs === "string"
+      ? logs.split("\n")
+      : [];
 
-  // Filter logs based on search and level
-  const filteredLogs = useMemo(() => {
-    return parsedLogs.filter((log) => {
-      const matchesSearch =
-        !searchTerm ||
-        log.content.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter logs
+  const filteredLogs = logLines.filter((line) => {
+    const matchesSearch = searchTerm
+      ? line.toLowerCase().includes(searchTerm.toLowerCase())
+      : true;
 
-      const matchesLevel = filterLevel === "all" || log.level === filterLevel;
+    const isError = isErrorLine(line);
+    const matchesErrorFilter = showOnlyErrors ? isError : true;
 
-      return matchesSearch && matchesLevel;
-    });
-  }, [parsedLogs, searchTerm, filterLevel]);
+    return matchesSearch && matchesErrorFilter;
+  });
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -85,312 +73,316 @@ export function LogsViewer({
     }
   }, [filteredLogs, autoScroll]);
 
-  // Count log levels
-  const levelCounts = useMemo(() => {
-    return parsedLogs.reduce(
-      (acc, log) => {
-        acc[log.level] = (acc[log.level] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-  }, [parsedLogs]);
+  // Detect manual scroll
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-  const handleCopyLogs = async () => {
-    const logText = filteredLogs.map((log) => log.rawLine).join("\n");
-    await navigator.clipboard.writeText(logText);
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 10;
+      setAutoScroll(isAtBottom);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleCopy = () => {
+    const text = filteredLogs.join("\n");
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadLogs = () => {
-    const logText = filteredLogs.map((log) => log.rawLine).join("\n");
-    const blob = new Blob([logText], { type: "text/plain" });
+  const handleDownload = () => {
+    const text = logLines.join("\n");
+    const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${podName}-${container || "logs"}-${Date.now()}.txt`;
+    a.download = `${podName}-${selectedContainer || "logs"}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
+  const handleContainerSelect = (cont: string) => {
+    setSelectedContainer(cont);
+    onContainerChange?.(cont);
+  };
+
+  const errorCount = logLines.filter(isErrorLine).length;
+  const warningCount = logLines.filter(isWarningLine).length;
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg border border-neutral-200 overflow-hidden">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="bg-neutral-50 border-b border-neutral-200 px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-200">
+        <div>
+          <h3 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
             <Terminal className="w-5 h-5 text-neutral-700" />
-            <div>
-              <h3 className="font-semibold text-neutral-900">Pod Logs</h3>
-              <p className="text-xs text-neutral-600">
-                {podName} {container && `(${container})`} • {namespace}
-              </p>
-            </div>
+            Logs: {podName}
+          </h3>
+          <p className="text-sm text-neutral-600">
+            {namespace}
+            {selectedContainer && ` • ${selectedContainer}`}
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-neutral-600" />
+            <span className="text-neutral-700 font-medium">
+              {filteredLogs.length} lines
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyLogs}
-              className="p-2 hover:bg-neutral-200 rounded-lg transition-colors"
-              title="Copy logs"
+          {errorCount > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
+              <span className="text-red-700 font-medium">
+                {errorCount} errors
+              </span>
+            </div>
+          )}
+          {warningCount > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+              <span className="text-amber-700 font-medium">
+                {warningCount} warnings
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Container selector */}
+        {containers.length > 1 && (
+          <div className="relative">
+            <select
+              value={selectedContainer}
+              onChange={(e) => handleContainerSelect(e.target.value)}
+              className="appearance-none px-4 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent hover:bg-neutral-50 transition-colors"
             >
-              {copied ? (
-                <Check className="w-4 h-4 text-green-600" />
-              ) : (
-                <Copy className="w-4 h-4 text-neutral-600" />
-              )}
-            </button>
+              {containers.map((cont) => (
+                <option key={cont} value={cont}>
+                  {cont}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+          </div>
+        )}
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search logs..."
+            className="w-full pl-10 pr-10 py-2 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+          />
+          {searchTerm && (
             <button
-              onClick={handleDownloadLogs}
-              className="p-2 hover:bg-neutral-200 rounded-lg transition-colors"
-              title="Download logs"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-neutral-100 rounded transition-colors"
             >
-              <Download className="w-4 h-4 text-neutral-600" />
+              <X className="w-3.5 h-3.5 text-neutral-400" />
             </button>
+          )}
+        </div>
+
+        {/* Error filter */}
+        {highlightErrors && (
+          <button
+            onClick={() => setShowOnlyErrors(!showOnlyErrors)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              showOnlyErrors
+                ? "bg-red-50 text-red-700 border border-red-200"
+                : "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50"
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Errors only
+          </button>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {onRefresh && (
             <button
-              onClick={() => setAutoScroll(!autoScroll)}
-              className={`p-2 rounded-lg transition-colors ${
-                autoScroll
-                  ? "bg-neutral-900 text-white"
-                  : "hover:bg-neutral-200 text-neutral-600"
-              }`}
-              title={
-                autoScroll ? "Auto-scroll enabled" : "Auto-scroll disabled"
-              }
+              onClick={onRefresh}
+              className="p-2 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition-all duration-200"
+              title="Refresh logs"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
-          </div>
-        </div>
+          )}
 
-        {/* Search and Filters */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search logs..."
-              className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-            />
-          </div>
-          <select
-            value={filterLevel}
-            onChange={(e) => setFilterLevel(e.target.value)}
-            className="px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+          <button
+            onClick={handleCopy}
+            className="p-2 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition-all duration-200"
+            title="Copy logs"
           >
-            <option value="all">All Levels ({parsedLogs.length})</option>
-            {levelCounts.error > 0 && (
-              <option value="error">Errors ({levelCounts.error})</option>
+            {copied ? (
+              <CheckCircle className="w-4 h-4 text-green-600" />
+            ) : (
+              <Copy className="w-4 h-4" />
             )}
-            {levelCounts.warn > 0 && (
-              <option value="warn">Warnings ({levelCounts.warn})</option>
-            )}
-            {levelCounts.info > 0 && (
-              <option value="info">Info ({levelCounts.info})</option>
-            )}
-            {levelCounts.debug > 0 && (
-              <option value="debug">Debug ({levelCounts.debug})</option>
-            )}
-          </select>
-        </div>
+          </button>
 
-        {/* Level Summary */}
-        {highlightErrors && (
-          <div className="flex items-center gap-3 mt-3 text-xs">
-            {levelCounts.error > 0 && (
-              <div className="flex items-center gap-1 text-red-600">
-                <AlertCircle className="w-3 h-3" />
-                <span>{levelCounts.error} errors</span>
-              </div>
-            )}
-            {levelCounts.warn > 0 && (
-              <div className="flex items-center gap-1 text-amber-600">
-                <AlertTriangle className="w-3 h-3" />
-                <span>{levelCounts.warn} warnings</span>
-              </div>
-            )}
-            {levelCounts.info > 0 && (
-              <div className="flex items-center gap-1 text-blue-600">
-                <Info className="w-3 h-3" />
-                <span>{levelCounts.info} info</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1 text-neutral-600">
-              <Filter className="w-3 h-3" />
-              <span>
-                Showing {filteredLogs.length} of {parsedLogs.length} lines
-              </span>
-            </div>
-          </div>
-        )}
+          <button
+            onClick={handleDownload}
+            className="p-2 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition-all duration-200"
+            title="Download logs"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Logs Content */}
-      <div
-        ref={logsContainerRef}
-        className="flex-1 overflow-y-auto bg-neutral-950 font-mono text-xs"
-        style={{ maxHeight: "600px" }}
-      >
-        {filteredLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-400 py-12">
-            <XCircle className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm">
-              {searchTerm || filterLevel !== "all"
-                ? "No logs match your filters"
-                : "No logs available"}
-            </p>
-          </div>
-        ) : (
-          <div className="p-4">
-            {filteredLogs.map((log) => (
-              <LogLineComponent
-                key={log.lineNumber}
-                log={log}
-                showTimestamps={showTimestamps}
-                highlightErrors={highlightErrors}
-                searchTerm={searchTerm}
-              />
-            ))}
+      {/* Logs Container */}
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div
+          ref={containerRef}
+          className="overflow-y-auto scrollbar-thin"
+          style={{ maxHeight: "600px" }}
+        >
+          <div className="p-4 font-mono text-xs space-y-0.5">
+            {filteredLogs.length > 0 ? (
+              filteredLogs.map((line, index) => (
+                <LogLine
+                  key={index}
+                  line={line}
+                  index={index}
+                  highlightErrors={highlightErrors}
+                  searchTerm={searchTerm}
+                />
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Terminal className="w-8 h-8 text-neutral-300 mb-3" />
+                <p className="text-neutral-500 text-sm">
+                  {logLines.length === 0
+                    ? "No logs available"
+                    : "No logs match your filters"}
+                </p>
+              </div>
+            )}
             <div ref={logsEndRef} />
           </div>
-        )}
-      </div>
-
-      {/* Footer Stats */}
-      <div className="bg-neutral-50 border-t border-neutral-200 px-4 py-2 text-xs text-neutral-600">
-        <div className="flex items-center justify-between">
-          <span>
-            {filteredLogs.length} lines{" "}
-            {searchTerm && `matching "${searchTerm}"`}
-          </span>
-          <span className="font-mono">
-            {namespace}/{podName}
-          </span>
         </div>
+
+        {/* Auto-scroll indicator */}
+        {!autoScroll && filteredLogs.length > 0 && (
+          <button
+            onClick={() => {
+              setAutoScroll(true);
+              logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="absolute bottom-4 right-4 px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-white text-xs rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Scroll to bottom
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// Log Line Component
-function LogLineComponent({
-  log,
-  showTimestamps,
+// Individual log line component
+function LogLine({
+  line,
+  index,
   highlightErrors,
   searchTerm,
 }: {
-  log: LogLine;
-  showTimestamps: boolean;
+  line: string;
+  index: number;
   highlightErrors: boolean;
   searchTerm: string;
 }) {
-  const levelColors = {
-    error: "text-red-400 bg-red-950/30",
-    warn: "text-amber-400 bg-amber-950/30",
-    info: "text-blue-400 bg-blue-950/30",
-    debug: "text-green-400 bg-green-950/30",
-    unknown: "text-neutral-300",
-  };
+  const isError = isErrorLine(line);
+  const isWarning = isWarningLine(line);
 
-  const levelIcons = {
-    error: <AlertCircle className="w-3 h-3" />,
-    warn: <AlertTriangle className="w-3 h-3" />,
-    info: <Info className="w-3 h-3" />,
-    debug: <Info className="w-3 h-3" />,
-    unknown: null,
-  };
-
-  const highlightText = (text: string) => {
-    if (!searchTerm) return text;
-
-    const regex = new RegExp(`(${searchTerm})`, "gi");
-    const parts = text.split(regex);
-
-    return parts.map((part, i) =>
-      part.toLowerCase() === searchTerm.toLowerCase() ? (
-        <span key={i} className="bg-yellow-400 text-neutral-900 px-1 rounded">
-          {part}
-        </span>
-      ) : (
-        part
-      ),
-    );
-  };
+  // Highlight search term
+  const highlightedText = searchTerm
+    ? highlightSearchTerm(line, searchTerm)
+    : line;
 
   return (
     <div
-      className={`flex items-start gap-3 py-1 px-2 rounded hover:bg-neutral-900/50 ${
-        highlightErrors && log.level !== "unknown"
-          ? levelColors[log.level]
-          : "text-neutral-300"
+      className={`flex items-start gap-3 px-2 py-1 hover:bg-neutral-50 rounded group ${
+        highlightErrors && isError
+          ? "bg-red-50 border-l-2 border-red-600"
+          : highlightErrors && isWarning
+            ? "bg-amber-50 border-l-2 border-amber-600"
+            : ""
       }`}
     >
-      {/* Line Number */}
-      <span className="text-neutral-600 select-none w-12 text-right flex-shrink-0">
-        {log.lineNumber}
+      {/* Line number */}
+      <span className="text-neutral-400 select-none w-10 text-right flex-shrink-0 text-xs">
+        {index + 1}
       </span>
 
-      {/* Level Icon */}
-      {highlightErrors && log.level !== "unknown" && (
-        <span className="flex-shrink-0 mt-0.5">{levelIcons[log.level]}</span>
+      {/* Icon */}
+      {highlightErrors && (isError || isWarning) && (
+        <div className="flex-shrink-0 mt-0.5">
+          {isError ? (
+            <AlertTriangle className="w-3 h-3 text-red-700" />
+          ) : (
+            <AlertTriangle className="w-3 h-3 text-amber-700" />
+          )}
+        </div>
       )}
 
-      {/* Timestamp */}
-      {showTimestamps && log.timestamp && (
-        <span className="text-neutral-500 flex-shrink-0">{log.timestamp}</span>
-      )}
-
-      {/* Content */}
-      <span className="flex-1 break-words whitespace-pre-wrap">
-        {highlightText(log.content)}
-      </span>
+      {/* Log text */}
+      <span
+        className={`flex-1 ${
+          isError
+            ? "text-red-700"
+            : isWarning
+              ? "text-amber-700"
+              : "text-neutral-700"
+        }`}
+        dangerouslySetInnerHTML={{ __html: highlightedText }}
+      />
     </div>
   );
 }
 
-// Parse individual log line
-function parseLine(line: string, lineNumber: number): LogLine {
-  // Detect timestamp (ISO 8601 or common formats)
-  const timestampRegex =
-    /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/;
-  const timestampMatch = line.match(timestampRegex);
-  const timestamp = timestampMatch ? timestampMatch[1] : undefined;
+// Helper functions
+function isErrorLine(line: string): boolean {
+  const errorPatterns = [
+    /error/i,
+    /exception/i,
+    /fail/i,
+    /fatal/i,
+    /panic/i,
+    /\[ERR\]/i,
+    /ERROR:/i,
+  ];
+  return errorPatterns.some((pattern) => pattern.test(line));
+}
 
-  // Remove timestamp from content
-  const content = timestamp ? line.slice(timestamp.length).trim() : line;
+function isWarningLine(line: string): boolean {
+  const warningPatterns = [/warn/i, /warning/i, /\[WARN\]/i, /WARN:/i];
+  return warningPatterns.some((pattern) => pattern.test(line));
+}
 
-  // Detect log level
-  let level: LogLine["level"] = "unknown";
-  const lowerContent = content.toLowerCase();
+function highlightSearchTerm(text: string, searchTerm: string): string {
+  if (!searchTerm) return text;
 
-  if (
-    lowerContent.includes("error") ||
-    lowerContent.includes("exception") ||
-    lowerContent.includes("fatal") ||
-    lowerContent.includes("panic") ||
-    lowerContent.includes("fail")
-  ) {
-    level = "error";
-  } else if (
-    lowerContent.includes("warn") ||
-    lowerContent.includes("warning")
-  ) {
-    level = "warn";
-  } else if (lowerContent.includes("info")) {
-    level = "info";
-  } else if (lowerContent.includes("debug") || lowerContent.includes("trace")) {
-    level = "debug";
-  }
-
-  return {
-    lineNumber,
-    timestamp,
-    level,
-    content,
-    rawLine: line,
-  };
+  const regex = new RegExp(`(${searchTerm})`, "gi");
+  return text.replace(
+    regex,
+    '<mark class="bg-neutral-200 text-neutral-900 rounded px-0.5">$1</mark>',
+  );
 }

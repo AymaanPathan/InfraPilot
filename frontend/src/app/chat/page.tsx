@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ExplanationDisplay } from "@/components/container/Explanationcomponents";
+import { logger } from "@/components/DevConsole";
 
 export default function ChatPage() {
   const { thread, isLoading } = useTamboThread();
@@ -26,28 +27,31 @@ export default function ChatPage() {
   useEffect(() => {
     if (thread?.messages?.length) {
       const lastMessage = thread.messages.at(-1);
-      console.group("🧠 TAMBO MESSAGE DEBUG");
-      console.log("Message role:", lastMessage?.role);
-      console.log("Message ID:", lastMessage?.id);
-      console.log("Content:", lastMessage?.content);
-      console.log("Has rendered component:", !!lastMessage?.renderedComponent);
+
+      // Log to DevConsole only - not displayed in chat
+      logger.group("TAMBO MESSAGE DEBUG");
+      logger.debug("tambo", `Message role: ${lastMessage?.role}`);
+      logger.debug("tambo", `Message ID: ${lastMessage?.id}`);
+      logger.debug("tambo", "Has rendered component", {
+        hasComponent: !!lastMessage?.renderedComponent,
+      });
 
       if (lastMessage?.content) {
         const hasExplanation = lastMessage.content.some(
           (c: any) => c.type === "tool_result" && c.content?.explanation,
         );
-        console.log("Has explanation:", hasExplanation);
+        logger.debug("tambo", `Has explanation: ${hasExplanation}`);
       }
 
       if (lastMessage?.renderedComponent) {
-        console.log(
-          "Component type:",
-          lastMessage.renderedComponent?.type?.name ||
+        logger.info("tambo", "Component rendered", {
+          type:
+            lastMessage.renderedComponent?.type?.name ||
             typeof lastMessage.renderedComponent,
-        );
+        });
       }
-      console.log("Full message object:", lastMessage);
-      console.groupEnd();
+
+      logger.debug("tambo", "Full message object", lastMessage);
     }
   }, [thread?.messages]);
 
@@ -63,53 +67,52 @@ export default function ChatPage() {
     setValue(input);
     setInputValue("");
 
-    console.group("📤 SENDING MESSAGE");
-    console.log("Input:", input);
-    console.log("Thread ID:", thread?.id);
-    console.log("Message count before:", thread?.messages?.length);
-    console.groupEnd();
+    logger.group(`Sending message: "${input}"`);
+    logger.info("chat", "User input received", {
+      input: input.substring(0, 100),
+      threadId: thread?.id,
+      messageCountBefore: thread?.messages?.length,
+    });
 
     try {
+      const startTime = Date.now();
+
       await submit({
         streamResponse: true,
         forceToolChoice: "infra_command",
       });
 
-      console.log("✅ Submit successful");
+      const duration = Date.now() - startTime;
+      logger.success("chat", `Submit successful (${duration}ms)`, {
+        messageCountAfter: thread?.messages?.length,
+      });
     } catch (err: any) {
-      console.group("🚨 TAMBO SUBMISSION ERROR");
-      console.error("Error type:", err?.constructor?.name);
-      console.error("Message:", err?.message);
-      console.error("Full error:", err);
-
-      if (err?.cause) {
-        console.error("Cause:", err.cause);
-      }
+      logger.group("🚨 TAMBO SUBMISSION ERROR");
+      logger.error("chat", "Submission failed", {
+        errorType: err?.constructor?.name,
+        message: err?.message,
+        cause: err?.cause,
+        stack: err?.stack,
+      });
 
       if (err?.response) {
-        console.error("Response:", err.response);
+        logger.error("chat", "Error response", { response: err.response });
         try {
           const responseText = await err.response.text();
-          console.error("Response body:", responseText);
+          logger.error("chat", "Response body", { body: responseText });
         } catch (e) {
-          console.error("Could not read response body");
+          logger.warn("chat", "Could not read response body");
         }
       }
 
-      if (err?.stack) {
-        console.error("Stack trace:", err.stack);
-      }
-
-      console.error("Thread state at error:", {
+      logger.error("chat", "Thread state at error", {
         threadId: thread?.id,
         messageCount: thread?.messages?.length,
         lastMessage: thread?.messages?.at(-1),
       });
 
-      console.groupEnd();
-
       alert(
-        `Error: ${err?.message || "Unknown error occurred"}. Check console for details.`,
+        `Error: ${err?.message || "Unknown error occurred"}. Check DevConsole for details.`,
       );
     }
   };
@@ -297,6 +300,25 @@ function EmptyState({
   );
 }
 
+/**
+ * Helper function to check if text looks like JSON or internal data
+ */
+function isInternalData(text: string): boolean {
+  const trimmed = text.trim();
+
+  // Check if it's JSON
+  if (trimmed.startsWith("{") && trimmed.includes("componentName")) {
+    return true;
+  }
+
+  // Check if it's stringified JSON
+  if (trimmed.startsWith('{"componentName"')) {
+    return true;
+  }
+
+  return false;
+}
+
 function MessageBubble({
   message,
   isLatest,
@@ -306,6 +328,7 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
 
+  // Extract explanation from tool_result content
   const explanation = message.content?.find(
     (c: any) => c.type === "tool_result" && c.content?.explanation,
   )?.content?.explanation;
@@ -313,6 +336,26 @@ function MessageBubble({
   const autoExplained = message.content?.find(
     (c: any) => c.type === "tool_result" && c.content?.autoExplained,
   )?.content?.autoExplained;
+
+  // Get only human-readable text content (filter out JSON and tool results)
+  const textContent = Array.isArray(message.content)
+    ? message.content
+        .filter((item: any) => {
+          // Only include text type
+          if (item.type !== "text") return false;
+
+          // Filter out JSON-like content
+          if (isInternalData(item.text)) {
+            logger.debug("chat", "Filtered out internal data from display", {
+              preview: item.text.substring(0, 100),
+            });
+            return false;
+          }
+
+          return true;
+        })
+        .map((item: any) => item.text)
+    : [];
 
   return (
     <div
@@ -325,22 +368,25 @@ function MessageBubble({
             : "bg-white border border-neutral-200 text-neutral-900 w-full"
         } rounded-xl px-6 py-4 transition-all duration-200`}
       >
-        {/* Render text content */}
-        {Array.isArray(message.content) &&
-          message.content.map((item: any, i: number) =>
-            item.type === "text" ? (
-              <p
-                key={i}
-                className={`text-sm whitespace-pre-wrap leading-relaxed ${isUser ? "text-white" : "text-neutral-700"}`}
-              >
-                {item.text}
-              </p>
-            ) : null,
-          )}
+        {/* Render ONLY clean text content */}
+        {textContent.map((text: string, i: number) => (
+          <p
+            key={i}
+            className={`text-sm whitespace-pre-wrap leading-relaxed ${isUser ? "text-white" : "text-neutral-700"}`}
+          >
+            {text}
+          </p>
+        ))}
 
         {/* Render component if available */}
         {message.renderedComponent && (
-          <div className="mt-4 animate-fadeIn">{message.renderedComponent}</div>
+          <div
+            className={
+              textContent.length > 0 ? "mt-4 animate-fadeIn" : "animate-fadeIn"
+            }
+          >
+            {message.renderedComponent}
+          </div>
         )}
 
         {/* Render AI explanation if available */}
@@ -358,48 +404,6 @@ function MessageBubble({
               showIcon={false}
               className="bg-neutral-50 border-neutral-200"
             />
-          </div>
-        )}
-
-        {/* Debug info for development */}
-        {isLatest && !isUser && process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-neutral-50 rounded-lg border border-neutral-200 text-xs font-mono">
-            <div className="text-neutral-600 mb-2 font-semibold">
-              🔍 Debug Info
-            </div>
-            <div className="space-y-1 text-neutral-500">
-              <div>
-                Role: <span className="text-neutral-700">{message.role}</span>
-              </div>
-              <div>
-                Component:{" "}
-                <span
-                  className={
-                    message.renderedComponent
-                      ? "text-green-700"
-                      : "text-red-700"
-                  }
-                >
-                  {message.renderedComponent ? "✓ Rendered" : "✗ Missing"}
-                </span>
-              </div>
-              <div>
-                Explanation:{" "}
-                <span
-                  className={
-                    explanation ? "text-green-700" : "text-neutral-400"
-                  }
-                >
-                  {explanation ? "✓ Present" : "✗ None"}
-                </span>
-              </div>
-              <div>
-                Content blocks:{" "}
-                <span className="text-neutral-700">
-                  {message.content?.length || 0}
-                </span>
-              </div>
-            </div>
           </div>
         )}
       </div>
