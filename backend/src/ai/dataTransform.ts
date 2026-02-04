@@ -43,6 +43,82 @@ export function transformPodsList(k8sResponse: any): any {
   }
 }
 
+/**
+ * Transform pods for PodHealthMonitor component
+ * Converts metrics to percentage values that the component expects
+ */
+export function transformPodsForHealthMonitor(k8sResponse: any): any {
+  try {
+    const rawPods = k8sResponse.pods || k8sResponse || [];
+
+    const pods = rawPods.map((pod: any) => {
+      const rawStatus =
+        typeof pod.status === "string"
+          ? pod.status
+          : (pod.status?.phase ?? "Unknown");
+
+      // Extract CPU and memory percentages from metrics
+      let cpuUsage: number | undefined;
+      let memoryUsage: number | undefined;
+
+      console.log("Pod metrics debug:", {
+        podName: pod.name,
+        rawMetrics: pod.metrics,
+        calculatedCPU: cpuUsage,
+        calculatedMemory: memoryUsage,
+      });
+      if (pod.metrics) {
+        // If metrics has usagePercent, use it directly
+        cpuUsage = pod.metrics.cpu?.usagePercent;
+        memoryUsage = pod.metrics.memory?.usagePercent;
+
+        // Otherwise, calculate from cores/bytes if available
+        if (cpuUsage === undefined && pod.metrics.cpu?.cores !== undefined) {
+          // Assume 2 cores total capacity (adjust based on your cluster)
+          const totalCores = 12;
+          cpuUsage = Math.round((pod.metrics.cpu.cores / totalCores) * 100);
+        }
+
+        if (
+          memoryUsage === undefined &&
+          pod.metrics.memory?.bytes !== undefined
+        ) {
+          const totalMemory = 7903313920;
+          memoryUsage = Math.round(
+            (pod.metrics.memory.bytes / totalMemory) * 100,
+          );
+        }
+      }
+
+      return {
+        name: pod.name || pod.metadata?.name || "unknown",
+        namespace: pod.namespace || pod.metadata?.namespace || "default",
+        status: normalizeStatus(rawStatus),
+        restarts: pod.restarts || pod.restartCount || 0,
+        age:
+          pod.age || calculateAge(pod.metadata?.creationTimestamp) || "unknown",
+        readiness: pod.readiness,
+        cpuUsage, // ← Flat percentage number
+        memoryUsage, // ← Flat percentage number
+        lastRestart: pod.lastRestart,
+      };
+    });
+
+    logger.info("Transformed pods for health monitor", {
+      inputCount: rawPods.length,
+      outputCount: pods.length,
+      podsWithMetrics: pods.filter((p: any) => p.cpuUsage !== undefined).length,
+    });
+
+    return { pods };
+  } catch (error) {
+    logger.error("Failed to transform pods for health monitor", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { pods: [] };
+  }
+}
+
 export function transformPodLogs(
   k8sResponse: any,
   podName: string,
@@ -336,12 +412,10 @@ export function transformK8sResponse(
       return transformPodsList(k8sResponse);
 
     case "get_logs":
+      return transformPodsList(k8sResponse);
+
     case "get_pod_logs":
-      return transformPodLogs(
-        k8sResponse,
-        args?.pod_name || args?.name || "unknown",
-        args?.namespace,
-      );
+      return transformPodsForHealthMonitor(k8sResponse);
 
     case "get_pod_events":
       return transformPodEvents(k8sResponse, args?.name || args?.pod_name);
