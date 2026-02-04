@@ -3,7 +3,7 @@ import logger from "../utils/logger";
 import { generateMultiStepPlan } from "../ai/multi_step_planner";
 import { executeMultiStepPlan } from "../ai/multi_step_executor";
 import { runTool } from "../ai/tool-runner";
-import { transformMcpResponse } from "../ai/dataTransform";
+import { transformK8sResponse } from "../ai/dataTransform";
 import {
   explainPodFailure,
   analyzeLogs,
@@ -33,6 +33,19 @@ function buildErrorResponse(
   },
 ): any {
   const errorMessage = error instanceof Error ? error.message : String(error);
+
+  // Handle pod not found errors gracefully
+  if (errorMessage.includes("not found") || errorMessage.includes("404")) {
+    return {
+      ok: false,
+      error: "Resource Not Found",
+      code: "RESOURCE_NOT_FOUND",
+      hint: `The pod '${context.args?.name}' does not exist in namespace '${context.args?.namespace || "default"}'`,
+      details: errorMessage,
+      suggestion: "Try listing available pods first with 'show all pods'",
+      meta: context,
+    };
+  }
 
   if (errorMessage.includes("METRICS_UNAVAILABLE")) {
     return {
@@ -142,13 +155,14 @@ async function generateAutoExplanation(
  *
  * PHASE F ENHANCED - Main endpoint with multi-step support
  * Handles both simple queries and complex multi-intent prompts
+ * NO MCP DEPENDENCIES
  */
 router.post("/command", async (req: Request, res: Response) => {
   const startTime = Date.now();
   const { input, explain } = req.body;
 
   console.log(
-    "\n========== /api/ai/command HANDLER START (PHASE F) ==========",
+    "\n========== /api/ai/command HANDLER START (PHASE F - NO MCP) ==========",
   );
   console.log("📥 Input:", input);
 
@@ -258,12 +272,30 @@ router.post("/command", async (req: Request, res: Response) => {
         return res.json(response);
       } catch (execError) {
         console.error("❌ Multi-step execution error:", execError);
+
+        // Handle specific error cases
+        const errorMessage =
+          execError instanceof Error ? execError.message : String(execError);
+
+        if (
+          errorMessage.includes("not found") ||
+          errorMessage.includes("404")
+        ) {
+          return res.status(404).json({
+            ok: false,
+            error: "One or more pods not found",
+            code: "PODS_NOT_FOUND",
+            hint: "The pods you're trying to compare don't exist in the cluster",
+            suggestion: "Run 'show all pods' to see available pods first",
+            details: errorMessage,
+          });
+        }
+
         return res.status(500).json({
           ok: false,
           error: "Multi-step execution failed",
           code: "EXECUTION_ERROR",
-          details:
-            execError instanceof Error ? execError.message : String(execError),
+          details: errorMessage,
         });
       }
     }
@@ -304,11 +336,11 @@ router.post("/command", async (req: Request, res: Response) => {
       return res.status(500).json(errorResponse);
     }
 
-    // Transform data
+    // Transform data (renamed from transformMcpResponse)
     console.log("\n🎨 STEP 3: Transforming data...");
     let transformedData;
     try {
-      transformedData = transformMcpResponse(
+      transformedData = transformK8sResponse(
         singleStep.tool,
         toolResult.data,
         singleStep.args,
@@ -378,7 +410,7 @@ router.post("/command", async (req: Request, res: Response) => {
   }
 });
 
-// Keep all other existing endpoints...
+// Explain pod endpoint
 router.post("/explain/pod", async (req: Request, res: Response) => {
   const { name, namespace = "default" } = req.body;
   try {
@@ -423,6 +455,7 @@ router.post("/explain/pod", async (req: Request, res: Response) => {
   }
 });
 
+// Health endpoint
 router.get("/health", async (req: Request, res: Response) => {
   try {
     const metricsAvailable = await k8sClient.isMetricsServerAvailable();
@@ -452,6 +485,45 @@ router.get("/health", async (req: Request, res: Response) => {
     res.status(500).json({
       ok: false,
       error: "Health check failed",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Get available tools
+router.get("/tools", (req: Request, res: Response) => {
+  try {
+    const tools = getAllTools();
+    res.json({
+      ok: true,
+      tools: tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        category: t.category,
+        examples: t.examples,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to get tools",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Get command suggestions
+router.get("/suggestions", (req: Request, res: Response) => {
+  try {
+    const suggestions = getSmartSuggestions();
+    res.json({
+      ok: true,
+      suggestions,
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to get suggestions",
       details: error instanceof Error ? error.message : String(error),
     });
   }

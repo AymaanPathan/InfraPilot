@@ -4,18 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useTamboThread, useTamboThreadInput } from "@tambo-ai/react";
 import {
   MessageCircle,
-  Terminal,
-  Loader2,
   Send,
   Sparkles,
-  Zap,
   Activity,
   Box,
   Database,
   Network,
-  Settings,
   TrendingUp,
   Brain,
+  Command,
+  Loader2,
 } from "lucide-react";
 import { ExplanationDisplay } from "@/components/container/Explanationcomponents";
 
@@ -25,7 +23,6 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState("");
 
-  // Enhanced debugging
   useEffect(() => {
     if (thread?.messages?.length) {
       const lastMessage = thread.messages.at(-1);
@@ -35,7 +32,6 @@ export default function ChatPage() {
       console.log("Content:", lastMessage?.content);
       console.log("Has rendered component:", !!lastMessage?.renderedComponent);
 
-      // PHASE E: Check for explanation
       if (lastMessage?.content) {
         const hasExplanation = lastMessage.content.some(
           (c: any) => c.type === "tool_result" && c.content?.explanation,
@@ -126,43 +122,45 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col relative overflow-hidden">
-      {/* Animated background gradient orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-blue-500/5 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow animation-delay-2000" />
-        <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-emerald-500/3 rounded-full blur-3xl animate-pulse-slow animation-delay-4000" />
-      </div>
-
-      {/* Header */}
-      <header className="relative border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl z-10">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 group">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex flex-col">
+      {/* Modern Header */}
+      <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="relative">
-              <Terminal className="w-6 h-6 text-blue-400 transition-transform group-hover:scale-110 duration-300" />
-              <div className="absolute inset-0 bg-blue-400 blur-md opacity-0 group-hover:opacity-30 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl blur-lg opacity-20" />
+              <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl">
+                <Command className="w-5 h-5 text-white" />
+              </div>
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
-              Kubernetes AI Dashboard
-            </h1>
+            <div>
+              <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                Kubernetes Assistant
+              </h1>
+              <p className="text-xs text-slate-500">
+                AI-powered cluster management
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
-              <Sparkles className="w-4 h-4 text-blue-400" />
-              <span>Powered by Tambo + AI Explanations</span>
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <span className="text-xs font-medium text-blue-700">
+                AI-Powered
+              </span>
             </div>
-            <button className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
-              <Settings className="w-5 h-5" />
+            <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+              <Activity className="w-5 h-5" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden flex flex-col relative">
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          <div className="container mx-auto px-6 py-8 max-w-6xl">
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Messages Container */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-6 py-8">
             {messages.length === 0 ? (
               <EmptyState onExampleClick={setInputValue} />
             ) : (
@@ -192,31 +190,22 @@ export default function ChatPage() {
       </div>
 
       <style jsx global>{`
-        @keyframes pulse-slow {
-          0%,
-          100% {
-            opacity: 0.05;
-            transform: scale(1);
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
           }
-          50% {
-            opacity: 0.1;
-            transform: scale(1.05);
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
 
-        .animate-pulse-slow {
-          animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out;
         }
 
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-
-        @keyframes slide-up {
+        @keyframes slideUp {
           from {
             opacity: 0;
             transform: translateY(20px);
@@ -227,34 +216,25 @@ export default function ChatPage() {
           }
         }
 
-        .animate-slide-up {
-          animation: slide-up 0.4s ease-out;
-        }
-
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
+        .animate-slideUp {
+          animation: slideUp 0.5s ease-out;
         }
 
         .scrollbar-thin::-webkit-scrollbar {
           width: 6px;
         }
 
-        .scrollbar-thumb-slate-700::-webkit-scrollbar-thumb {
-          background-color: rgb(51 65 85);
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
           border-radius: 3px;
         }
 
-        .scrollbar-track-transparent::-webkit-scrollbar-track {
-          background-color: transparent;
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
         }
       `}</style>
     </div>
@@ -269,58 +249,59 @@ function EmptyState({
   const examples = [
     {
       text: "Show me cluster overview with health metrics",
-      icon: <Activity className="w-6 h-6" />,
-      color: "from-emerald-500/20 to-blue-500/20",
-      borderColor: "hover:border-emerald-500/30",
+      icon: <Activity className="w-5 h-5" />,
+      gradient: "from-emerald-500 to-teal-500",
+      bgGradient: "from-emerald-50 to-teal-50",
     },
     {
       text: "Get resource usage for all namespaces",
-      icon: <TrendingUp className="w-6 h-6" />,
-      color: "from-purple-500/20 to-pink-500/20",
-      borderColor: "hover:border-purple-500/30",
+      icon: <TrendingUp className="w-5 h-5" />,
+      gradient: "from-violet-500 to-purple-500",
+      bgGradient: "from-violet-50 to-purple-50",
     },
     {
       text: "Monitor pod health across the cluster",
-      icon: <Box className="w-6 h-6" />,
-      color: "from-amber-500/20 to-orange-500/20",
-      borderColor: "hover:border-amber-500/30",
+      icon: <Box className="w-5 h-5" />,
+      gradient: "from-amber-500 to-orange-500",
+      bgGradient: "from-amber-50 to-orange-50",
     },
     {
       text: "Show all pods and their current status",
-      icon: <Database className="w-6 h-6" />,
-      color: "from-cyan-500/20 to-blue-500/20",
-      borderColor: "hover:border-cyan-500/30",
+      icon: <Database className="w-5 h-5" />,
+      gradient: "from-cyan-500 to-blue-500",
+      bgGradient: "from-cyan-50 to-blue-50",
     },
     {
       text: "Get logs for api-server pod",
-      icon: <Terminal className="w-6 h-6" />,
-      color: "from-blue-500/20 to-indigo-500/20",
-      borderColor: "hover:border-blue-500/30",
+      icon: <Command className="w-5 h-5" />,
+      gradient: "from-blue-500 to-indigo-500",
+      bgGradient: "from-blue-50 to-indigo-50",
     },
     {
       text: "List all deployments and services",
-      icon: <Network className="w-6 h-6" />,
-      color: "from-green-500/20 to-emerald-500/20",
-      borderColor: "hover:border-green-500/30",
+      icon: <Network className="w-5 h-5" />,
+      gradient: "from-green-500 to-emerald-500",
+      bgGradient: "from-green-50 to-emerald-50",
     },
   ];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] text-center animate-fadeIn">
       <div className="relative mb-8">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-3xl rounded-full" />
-        <MessageCircle className="relative w-20 h-20 text-blue-500/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-purple-500/20 blur-3xl rounded-full animate-pulse" />
+        <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl shadow-xl">
+          <MessageCircle className="w-12 h-12 text-white" />
+        </div>
       </div>
 
-      <h2 className="text-4xl font-bold text-white mb-3 bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
-        Ask me about your Kubernetes cluster
+      <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent">
+        Welcome to your Kubernetes Assistant
       </h2>
 
-      <p className="text-slate-400 mb-12 max-w-2xl text-lg leading-relaxed">
-        I can monitor resources, view logs, check health, analyze metrics,
-        diagnose issues,
-        <span className="text-blue-400 font-semibold">
-          {" "}
+      <p className="text-slate-600 mb-12 max-w-2xl text-lg leading-relaxed">
+        Ask me anything about your cluster. I can monitor resources, view logs,
+        check health, analyze metrics,{" "}
+        <span className="font-semibold text-blue-600">
           and explain what's wrong
         </span>{" "}
         using AI.
@@ -331,20 +312,19 @@ function EmptyState({
           <button
             key={index}
             onClick={() => onExampleClick(example.text)}
-            className={`group relative px-6 py-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/50 ${example.borderColor} rounded-xl text-left transition-all duration-300 hover:scale-105 hover:shadow-xl overflow-hidden`}
-            style={{ animationDelay: `${index * 100}ms` }}
+            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1"
+            style={{ animationDelay: `${index * 50}ms` }}
           >
             <div
-              className={`absolute inset-0 bg-gradient-to-br ${example.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+              className={`absolute inset-0 bg-gradient-to-br ${example.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
             />
-            <div className="relative flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="p-2 rounded-lg bg-slate-800/50 group-hover:bg-slate-800 transition-colors">
-                  {example.icon}
-                </div>
-                <Zap className="w-4 h-4 text-slate-600 group-hover:text-blue-400 transition-colors" />
+            <div className="relative flex flex-col gap-4">
+              <div
+                className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${example.gradient} shadow-sm`}
+              >
+                <div className="text-white">{example.icon}</div>
               </div>
-              <span className="text-sm text-slate-300 group-hover:text-white transition-colors leading-relaxed">
+              <span className="text-sm text-slate-700 leading-relaxed font-medium">
                 {example.text}
               </span>
             </div>
@@ -352,7 +332,7 @@ function EmptyState({
         ))}
       </div>
 
-      <div className="mt-12 flex items-center gap-2 text-xs text-slate-500">
+      <div className="mt-12 flex items-center gap-2 text-xs text-slate-400">
         <Sparkles className="w-4 h-4" />
         <span>
           Powered by AI • Real-time monitoring • Automatic issue detection
@@ -371,7 +351,6 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
 
-  // PHASE E: Extract explanation from message content
   const explanation = message.content?.find(
     (c: any) => c.type === "tool_result" && c.content?.explanation,
   )?.content?.explanation;
@@ -382,16 +361,14 @@ function MessageBubble({
 
   return (
     <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} animate-slide-up`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"} animate-slideUp`}
     >
       <div
         className={`max-w-4xl ${
           isUser
-            ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/20"
-            : "bg-slate-800/80 backdrop-blur-sm text-slate-100 w-full border border-slate-700/50"
-        } rounded-2xl px-6 py-4 transition-all duration-300 hover:shadow-xl ${
-          isUser ? "hover:shadow-blue-500/30" : "hover:shadow-slate-700/50"
-        }`}
+            ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20"
+            : "bg-white border border-slate-200 text-slate-900 w-full shadow-sm"
+        } rounded-2xl px-6 py-4 transition-all duration-300`}
       >
         {/* Render text content */}
         {Array.isArray(message.content) &&
@@ -399,7 +376,7 @@ function MessageBubble({
             item.type === "text" ? (
               <p
                 key={i}
-                className="text-sm whitespace-pre-wrap leading-relaxed"
+                className={`text-sm whitespace-pre-wrap leading-relaxed ${isUser ? "text-white" : "text-slate-700"}`}
               >
                 {item.text}
               </p>
@@ -408,15 +385,13 @@ function MessageBubble({
 
         {/* Render component if available */}
         {message.renderedComponent && (
-          <div className="mt-4 animate-fade-in">
-            {message.renderedComponent}
-          </div>
+          <div className="mt-4 animate-fadeIn">{message.renderedComponent}</div>
         )}
 
-        {/* PHASE E: Render AI explanation if available */}
+        {/* Render AI explanation if available */}
         {explanation && !isUser && (
-          <div className="mt-6 animate-fade-in">
-            <div className="flex items-center gap-2 mb-3 text-sm text-blue-300">
+          <div className="mt-6 animate-fadeIn">
+            <div className="flex items-center gap-2 mb-3 text-sm text-blue-600">
               <Brain className="w-4 h-4" />
               <span className="font-semibold">
                 {autoExplained ? "AI Auto-Analysis" : "AI Explanation"}
@@ -426,28 +401,28 @@ function MessageBubble({
               explanation={explanation}
               type="info"
               showIcon={false}
-              className="bg-slate-900/50"
+              className="bg-blue-50 border-blue-200"
             />
           </div>
         )}
 
-        {/* Enhanced debug info for latest assistant message */}
+        {/* Debug info for development */}
         {isLatest && !isUser && process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700/30 text-xs font-mono">
-            <div className="text-slate-400 mb-2 font-semibold">
+          <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs font-mono">
+            <div className="text-slate-600 mb-2 font-semibold">
               🔍 Debug Info
             </div>
             <div className="space-y-1 text-slate-500">
               <div>
-                Role: <span className="text-blue-400">{message.role}</span>
+                Role: <span className="text-blue-600">{message.role}</span>
               </div>
               <div>
                 Component:{" "}
                 <span
                   className={
                     message.renderedComponent
-                      ? "text-emerald-400"
-                      : "text-red-400"
+                      ? "text-emerald-600"
+                      : "text-red-600"
                   }
                 >
                   {message.renderedComponent ? "✓ Rendered" : "✗ Missing"}
@@ -457,7 +432,7 @@ function MessageBubble({
                 Explanation:{" "}
                 <span
                   className={
-                    explanation ? "text-emerald-400" : "text-slate-600"
+                    explanation ? "text-emerald-600" : "text-slate-400"
                   }
                 >
                   {explanation ? "✓ Present" : "✗ None"}
@@ -465,7 +440,7 @@ function MessageBubble({
               </div>
               <div>
                 Content blocks:{" "}
-                <span className="text-amber-400">
+                <span className="text-amber-600">
                   {message.content?.length || 0}
                 </span>
               </div>
@@ -479,13 +454,17 @@ function MessageBubble({
 
 function LoadingIndicator() {
   return (
-    <div className="flex items-center gap-3 text-slate-400 px-6 py-4 animate-slide-up">
-      <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+    <div className="flex items-center gap-3 text-slate-600 px-6 py-4 animate-slideUp">
+      <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
       <div className="flex gap-1">
         <span className="text-sm">Analyzing cluster</span>
         <span className="animate-pulse">.</span>
-        <span className="animate-pulse animation-delay-200">.</span>
-        <span className="animate-pulse animation-delay-400">.</span>
+        <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>
+          .
+        </span>
+        <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>
+          .
+        </span>
       </div>
     </div>
   );
@@ -514,14 +493,14 @@ function ChatInput({
   };
 
   return (
-    <div className="relative border-t border-slate-800/50 bg-slate-950/80 backdrop-blur-xl z-10">
-      <div className="container mx-auto px-6 py-5 max-w-4xl">
+    <div className="border-t border-slate-200 bg-white/80 backdrop-blur-xl sticky bottom-0 z-10">
+      <div className="max-w-5xl mx-auto px-6 py-5">
         <form onSubmit={handleSubmit} className="relative">
           <div
             className={`relative rounded-2xl transition-all duration-300 ${
               isFocused
-                ? "ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20"
-                : "ring-1 ring-slate-700/50"
+                ? "ring-2 ring-blue-500 shadow-lg shadow-blue-500/10"
+                : "ring-1 ring-slate-200"
             }`}
           >
             <input
@@ -532,14 +511,14 @@ function ChatInput({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder="Ask about your cluster... (e.g., 'show cluster overview')"
-              className="w-full px-5 py-4 pr-14 bg-slate-800/50 backdrop-blur-sm rounded-2xl text-white placeholder-slate-500 focus:outline-none transition-all duration-300"
+              className="w-full px-5 py-4 pr-14 bg-white rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none transition-all duration-300"
               disabled={isLoading}
               autoComplete="off"
             />
             <button
               type="submit"
               disabled={isLoading || !value.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-300 hover:scale-105 disabled:scale-100 hover:shadow-lg hover:shadow-blue-500/30 group"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-300 hover:scale-105 disabled:scale-100 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 group"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -552,7 +531,7 @@ function ChatInput({
 
         <p className="text-xs text-slate-500 mt-3 text-center">
           Press{" "}
-          <kbd className="px-2 py-1 bg-slate-800 rounded text-slate-400">
+          <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-slate-700 font-mono">
             Enter
           </kbd>{" "}
           to send • AI will auto-explain issues

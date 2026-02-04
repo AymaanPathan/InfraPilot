@@ -12,38 +12,69 @@ import {
   TrendingDown,
   Minus,
   AlertTriangle,
+  PackageOpen,
 } from "lucide-react";
 import { ExplanationDisplay } from "./Explanationcomponents";
 
 /**
- * Comparison View Component - PHASE F
+ * Comparison View Component - PHASE F - FIXED
  *
  * Displays side-by-side comparison of pods, metrics, or other resources.
  * Used for queries like "compare CPU of payment and billing pods"
+ *
+ * FIXES:
+ * - Properly extracts pod data from multi-step execution results
+ * - Shows pod names and namespaces
+ * - Handles missing metrics gracefully
+ * - Better data structure detection
  */
 
 export const comparisonViewSchema = z.object({
-  comparison: z.array(
-    z.object({
-      step: z.number(),
-      data: z.any(),
-    }),
-  ),
-  items: z.array(z.any()),
+  comparison: z
+    .array(
+      z.object({
+        step: z.number(),
+        data: z.any(),
+      }),
+    )
+    .optional(),
+  items: z.array(z.any()).optional(),
   comparisonType: z.enum(["pods", "metrics", "resources"]).optional(),
   explanation: z.string().optional(),
+  // Multi-step execution result format
+  panels: z
+    .array(
+      z.object({
+        id: z.string(),
+        step: z.number(),
+        data: z.any(),
+        success: z.boolean(),
+      }),
+    )
+    .optional(),
 });
 
 type ComparisonViewProps = z.infer<typeof comparisonViewSchema>;
 
 export function ComparisonView({
-  comparison,
-  items,
-  comparisonType = "metrics",
+  comparison = [],
+  items = [],
+  panels = [],
+  comparisonType,
   explanation,
 }: ComparisonViewProps) {
+  // Extract items from different possible data structures
+  const extractedItems = extractItems(comparison, items, panels);
+
+  console.log("🔍 ComparisonView Debug:", {
+    comparison,
+    items,
+    panels,
+    extractedItems,
+  });
+
   // Detect comparison type if not provided
-  const detectedType = detectComparisonType(items);
+  const detectedType = detectComparisonType(extractedItems);
   const type = comparisonType || detectedType;
 
   return (
@@ -60,17 +91,53 @@ export function ComparisonView({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <GitCompare className="w-5 h-5 text-blue-400" />
-            Comparison: {items.length} Items
+            Comparison: {extractedItems.length} Items
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {type === "metrics" && <MetricsComparison items={items} />}
-          {type === "pods" && <PodsComparison items={items} />}
-          {type === "resources" && <ResourcesComparison items={items} />}
+          {extractedItems.length === 0 ? (
+            <EmptyComparison />
+          ) : (
+            <>
+              {type === "metrics" && (
+                <MetricsComparison items={extractedItems} />
+              )}
+              {type === "pods" && <PodsComparison items={extractedItems} />}
+              {type === "resources" && (
+                <ResourcesComparison items={extractedItems} />
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
   );
+}
+
+/**
+ * Extract items from various data structure formats
+ */
+function extractItems(
+  comparison: any[] = [],
+  items: any[] = [],
+  panels: any[] = [],
+): any[] {
+  // Priority 1: Use items if directly provided
+  if (items && items.length > 0) {
+    return items;
+  }
+
+  // Priority 2: Extract from comparison array (multi-step result)
+  if (comparison && comparison.length > 0) {
+    return comparison.map((c) => c.data).filter(Boolean);
+  }
+
+  // Priority 3: Extract from panels (multi-step result alternate format)
+  if (panels && panels.length > 0) {
+    return panels.map((p) => p.data).filter(Boolean);
+  }
+
+  return [];
 }
 
 /**
@@ -81,11 +148,13 @@ function detectComparisonType(items: any[]): "pods" | "metrics" | "resources" {
 
   const first = items[0];
 
-  if (first.cpu || first.memory || first.containers) {
+  // Check if it's pod data with metrics
+  if (first?.pod || first?.metadata?.name || first?.name) {
     return "metrics";
   }
 
-  if (first.status || first.restarts !== undefined) {
+  // Check if it's a pod list
+  if (first?.status || first?.restarts !== undefined) {
     return "pods";
   }
 
@@ -93,23 +162,68 @@ function detectComparisonType(items: any[]): "pods" | "metrics" | "resources" {
 }
 
 /**
- * Metrics Comparison View
+ * Empty state
  */
-function MetricsComparison({ items }: { items: any[] }) {
-  const metrics = items.map((item, index) => ({
-    name: item.metadata?.name || item.name || `Item ${index + 1}`,
-    namespace: item.metadata?.namespace || item.namespace || "default",
-    cpu: extractMetricValue(item, "cpu"),
-    memory: extractMetricValue(item, "memory"),
-    restarts: item.restartCount || 0,
-  }));
+function EmptyComparison() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <PackageOpen className="w-12 h-12 text-slate-600 mb-4" />
+      <h3 className="text-lg font-medium text-slate-400 mb-2">
+        No Data to Compare
+      </h3>
+      <p className="text-sm text-slate-500 max-w-md">
+        The comparison didn't return any data. This might happen if the pods
+        don't exist or if there was an error fetching their information.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Metrics Comparison View - FIXED
+ */
+function MetricsComparison({ items = [] }: { items?: any[] }) {
+  // Extract pod information and metrics
+  const metrics = items.map((item, index) => {
+    // Handle different data structures
+    const pod = item.pod || item;
+    const metadata = pod.metadata || {};
+    const status = pod.status || {};
+
+    // Extract name from various possible locations
+    const name = metadata.name || pod.name || item.name || `Pod ${index + 1}`;
+    const namespace =
+      metadata.namespace || pod.namespace || item.namespace || "default";
+
+    // Extract metrics
+    const cpu = extractMetricValue(item, "cpu");
+    const memory = extractMetricValue(item, "memory");
+    const restarts = extractRestartCount(item);
+    const podStatus = status.phase || pod.status || "Unknown";
+
+    return {
+      name,
+      namespace,
+      cpu,
+      memory,
+      restarts,
+      status: podStatus,
+      rawData: item, // Keep for debugging
+    };
+  });
+
+  console.log("📊 Metrics extracted:", metrics);
 
   // Calculate comparison stats
-  const cpuValues = metrics.map((m) => m.cpu).filter((v) => v !== null);
-  const memoryValues = metrics.map((m) => m.memory).filter((v) => v !== null);
+  const cpuValues = metrics
+    .map((m) => m.cpu)
+    .filter((v) => v !== null && v > 0);
+  const memoryValues = metrics
+    .map((m) => m.memory)
+    .filter((v) => v !== null && v > 0);
 
-  const cpuMax = Math.max(...cpuValues);
-  const memoryMax = Math.max(...memoryValues);
+  const cpuMax = cpuValues.length > 0 ? Math.max(...cpuValues as any) : 0;
+  const memoryMax = memoryValues.length > 0 ? Math.max(...memoryValues as any) : 0;
 
   return (
     <div className="space-y-6">
@@ -123,6 +237,9 @@ function MetricsComparison({ items }: { items: any[] }) {
               </th>
               <th className="text-left py-3 px-4 text-slate-400 font-medium">
                 Namespace
+              </th>
+              <th className="text-left py-3 px-4 text-slate-400 font-medium">
+                Status
               </th>
               <th className="text-left py-3 px-4 text-slate-400 font-medium">
                 <div className="flex items-center gap-2">
@@ -151,7 +268,14 @@ function MetricsComparison({ items }: { items: any[] }) {
                 className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
               >
                 <td className="py-3 px-4 font-medium text-white">
-                  {metric.name}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="truncate max-w-[200px]"
+                      title={metric.name}
+                    >
+                      {metric.name}
+                    </span>
+                  </div>
                 </td>
                 <td className="py-3 px-4 text-slate-300">
                   <Badge variant="outline" className="text-xs">
@@ -159,13 +283,18 @@ function MetricsComparison({ items }: { items: any[] }) {
                   </Badge>
                 </td>
                 <td className="py-3 px-4">
+                  <StatusBadge status={metric.status} />
+                </td>
+                <td className="py-3 px-4">
                   <div className="flex items-center gap-2">
                     <span className="text-white">
                       {metric.cpu !== null ? `${metric.cpu}m` : "N/A"}
                     </span>
-                    {metric.cpu === cpuMax && cpuValues.length > 1 && (
-                      <TrendingUp className="w-4 h-4 text-red-400" />
-                    )}
+                    {metric.cpu === cpuMax &&
+                      cpuValues.length > 1 &&
+                      metric.cpu > 0 && (
+                        <TrendingUp className="w-4 h-4 text-red-400" />
+                      )}
                   </div>
                 </td>
                 <td className="py-3 px-4">
@@ -173,9 +302,11 @@ function MetricsComparison({ items }: { items: any[] }) {
                     <span className="text-white">
                       {metric.memory !== null ? `${metric.memory}Mi` : "N/A"}
                     </span>
-                    {metric.memory === memoryMax && memoryValues.length > 1 && (
-                      <TrendingUp className="w-4 h-4 text-amber-400" />
-                    )}
+                    {metric.memory === memoryMax &&
+                      memoryValues.length > 1 &&
+                      metric.memory > 0 && (
+                        <TrendingUp className="w-4 h-4 text-amber-400" />
+                      )}
                   </div>
                 </td>
                 <td className="py-3 px-4">
@@ -191,29 +322,35 @@ function MetricsComparison({ items }: { items: any[] }) {
         </table>
       </div>
 
-      {/* Visual Comparison Bars */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ComparisonBar
-          title="CPU Usage"
-          items={metrics.map((m) => ({
-            label: m.name,
-            value: m.cpu || 0,
-            max: cpuMax,
-            unit: "m",
-          }))}
-          icon={<Cpu className="w-4 h-4" />}
-        />
-        <ComparisonBar
-          title="Memory Usage"
-          items={metrics.map((m) => ({
-            label: m.name,
-            value: m.memory || 0,
-            max: memoryMax,
-            unit: "Mi",
-          }))}
-          icon={<MemoryStick className="w-4 h-4" />}
-        />
-      </div>
+      {/* Visual Comparison Bars - Only show if we have data */}
+      {(cpuValues.length > 0 || memoryValues.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {cpuValues.length > 0 && (
+            <ComparisonBar
+              title="CPU Usage"
+              items={metrics.map((m) => ({
+                label: m.name,
+                value: m.cpu || 0,
+                max: cpuMax,
+                unit: "m",
+              }))}
+              icon={<Cpu className="w-4 h-4" />}
+            />
+          )}
+          {memoryValues.length > 0 && (
+            <ComparisonBar
+              title="Memory Usage"
+              items={metrics.map((m) => ({
+                label: m.name,
+                value: m.memory || 0,
+                max: memoryMax,
+                unit: "Mi",
+              }))}
+              icon={<MemoryStick className="w-4 h-4" />}
+            />
+          )}
+        </div>
+      )}
 
       {/* Winner/Insights */}
       <ComparisonInsights metrics={metrics} />
@@ -224,17 +361,21 @@ function MetricsComparison({ items }: { items: any[] }) {
 /**
  * Pods Comparison View
  */
-function PodsComparison({ items }: { items: any[] }) {
+function PodsComparison({ items = [] }: { items?: any[] }) {
   return (
     <div className="space-y-4">
       {items.map((pod, index) => (
         <div
           key={index}
-          className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg"
+          className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-700/50"
         >
-          <div>
-            <h4 className="font-medium text-white">{pod.name}</h4>
-            <p className="text-sm text-slate-400">{pod.namespace}</p>
+          <div className="flex-1">
+            <h4 className="font-medium text-white">
+              {pod.name || `Pod ${index + 1}`}
+            </h4>
+            <p className="text-sm text-slate-400">
+              {pod.namespace || "default"}
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <StatusBadge status={pod.status} />
@@ -249,7 +390,7 @@ function PodsComparison({ items }: { items: any[] }) {
 /**
  * Resources Comparison View
  */
-function ResourcesComparison({ items }: { items: any[] }) {
+function ResourcesComparison({ items = [] }: { items?: any[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {items.map((item, index) => (
@@ -275,7 +416,7 @@ function ResourcesComparison({ items }: { items: any[] }) {
  */
 function ComparisonBar({
   title,
-  items,
+  items = [],
   icon,
 }: {
   title: string;
@@ -290,22 +431,32 @@ function ComparisonBar({
       </div>
       <div className="space-y-2">
         {items.map((item, index) => {
-          const percentage = (item.value / item.max) * 100 || 0;
+          const percentage = item.max > 0 ? (item.value / item.max) * 100 : 0;
+          const hasValue = item.value > 0;
+
           return (
             <div key={index} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 truncate max-w-[150px]">
+                <span
+                  className="text-slate-400 truncate max-w-[150px]"
+                  title={item.label}
+                >
                   {item.label}
                 </span>
-                <span className="text-white font-medium">
-                  {item.value}
-                  {item.unit}
+                <span
+                  className={`font-medium ${hasValue ? "text-white" : "text-slate-600"}`}
+                >
+                  {hasValue ? `${item.value}${item.unit}` : "N/A"}
                 </span>
               </div>
               <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
-                  style={{ width: `${percentage}%` }}
+                  className={`h-full transition-all duration-500 ${
+                    hasValue
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600"
+                      : "bg-slate-700"
+                  }`}
+                  style={{ width: `${hasValue ? percentage : 0}%` }}
                 />
               </div>
             </div>
@@ -320,36 +471,42 @@ function ComparisonBar({
  * Comparison Insights
  */
 function ComparisonInsights({ metrics }: { metrics: any[] }) {
-  const cpuValues = metrics.map((m) => m.cpu).filter((v) => v !== null);
-  const memoryValues = metrics.map((m) => m.memory).filter((v) => v !== null);
-
-  if (cpuValues.length === 0 && memoryValues.length === 0) {
-    return null;
-  }
-
-  const highestCpu = metrics.find((m) => m.cpu === Math.max(...cpuValues));
-  const highestMemory = metrics.find(
-    (m) => m.memory === Math.max(...memoryValues),
-  );
+  const cpuValues = metrics
+    .map((m) => m.cpu)
+    .filter((v) => v !== null && v > 0);
+  const memoryValues = metrics
+    .map((m) => m.memory)
+    .filter((v) => v !== null && v > 0);
 
   const insights = [];
 
-  if (highestCpu) {
-    insights.push({
-      icon: <Cpu className="w-4 h-4" />,
-      text: `${highestCpu.name} has the highest CPU usage (${highestCpu.cpu}m)`,
-      color: "text-blue-400",
-    });
+  // CPU insights
+  if (cpuValues.length > 0) {
+    const maxCpu = Math.max(...cpuValues);
+    const highestCpu = metrics.find((m) => m.cpu === maxCpu);
+    if (highestCpu) {
+      insights.push({
+        icon: <Cpu className="w-4 h-4" />,
+        text: `${highestCpu.name} has the highest CPU usage (${highestCpu.cpu}m)`,
+        color: "text-blue-400",
+      });
+    }
   }
 
-  if (highestMemory) {
-    insights.push({
-      icon: <MemoryStick className="w-4 h-4" />,
-      text: `${highestMemory.name} has the highest memory usage (${highestMemory.memory}Mi)`,
-      color: "text-purple-400",
-    });
+  // Memory insights
+  if (memoryValues.length > 0) {
+    const maxMemory = Math.max(...memoryValues);
+    const highestMemory = metrics.find((m) => m.memory === maxMemory);
+    if (highestMemory) {
+      insights.push({
+        icon: <MemoryStick className="w-4 h-4" />,
+        text: `${highestMemory.name} has the highest memory usage (${highestMemory.memory}Mi)`,
+        color: "text-purple-400",
+      });
+    }
   }
 
+  // Restart insights
   const highRestarts = metrics.filter((m) => m.restarts > 5);
   if (highRestarts.length > 0) {
     insights.push({
@@ -359,12 +516,39 @@ function ComparisonInsights({ metrics }: { metrics: any[] }) {
     });
   }
 
+  // Status insights
+  const failedPods = metrics.filter(
+    (m) =>
+      m.status &&
+      (m.status.includes("Failed") || m.status.includes("CrashLoop")),
+  );
+  if (failedPods.length > 0) {
+    insights.push({
+      icon: <AlertTriangle className="w-4 h-4" />,
+      text: `${failedPods.length} pod(s) are in a failed state`,
+      color: "text-red-400",
+    });
+  }
+
+  // No metrics available warning
+  if (cpuValues.length === 0 && memoryValues.length === 0) {
+    insights.push({
+      icon: <AlertTriangle className="w-4 h-4" />,
+      text: "Metrics unavailable - install Kubernetes Metrics Server",
+      color: "text-amber-400",
+    });
+  }
+
+  if (insights.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="p-4 bg-slate-900/50 rounded-lg space-y-2">
+    <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/50 space-y-2">
       <h4 className="text-sm font-medium text-slate-300 mb-3">Key Insights</h4>
       {insights.map((insight, index) => (
-        <div key={index} className="flex items-center gap-2 text-sm">
-          <span className={insight.color}>{insight.icon}</span>
+        <div key={index} className="flex items-start gap-2 text-sm">
+          <span className={`${insight.color} mt-0.5`}>{insight.icon}</span>
           <span className="text-slate-300">{insight.text}</span>
         </div>
       ))}
@@ -373,20 +557,36 @@ function ComparisonInsights({ metrics }: { metrics: any[] }) {
 }
 
 /**
- * Extract metric value from pod data
+ * Extract metric value from pod data - FIXED
  */
 function extractMetricValue(item: any, type: "cpu" | "memory"): number | null {
+  // Try direct metric access
   if (item[type]) {
     if (typeof item[type] === "object") {
-      // Extract from cores/bytes
       const value = type === "cpu" ? item[type].cores : item[type].bytes;
-      return value || null;
+      if (value) {
+        // Convert to appropriate unit
+        if (type === "cpu") {
+          return Math.round(value * 1000); // cores to millicores
+        } else {
+          return Math.round(value / (1024 * 1024)); // bytes to Mi
+        }
+      }
     }
     if (typeof item[type] === "string") {
-      // Parse "250m" or "512Mi"
       const match = item[type].match(/(\d+)/);
       return match ? parseInt(match[1]) : null;
     }
+  }
+
+  // Try pod.metrics
+  if (item.pod?.metrics) {
+    return extractMetricValue(item.pod.metrics, type);
+  }
+
+  // Try item.metrics
+  if (item.metrics) {
+    return extractMetricValue(item.metrics, type);
   }
 
   // Try containers array
@@ -395,22 +595,55 @@ function extractMetricValue(item: any, type: "cpu" | "memory"): number | null {
       const val = extractMetricValue(c, type);
       return sum + (val || 0);
     }, 0);
-    return total || null;
+    return total > 0 ? total : null;
   }
 
   return null;
 }
 
 /**
+ * Extract restart count from various locations
+ */
+function extractRestartCount(item: any): number {
+  // Direct restarts/restartCount field
+  if (typeof item.restarts === "number") return item.restarts;
+  if (typeof item.restartCount === "number") return item.restartCount;
+
+  // From pod object
+  if (item.pod) {
+    if (typeof item.pod.restarts === "number") return item.pod.restarts;
+    if (typeof item.pod.restartCount === "number") return item.pod.restartCount;
+  }
+
+  // From metrics
+  if (item.metrics?.restartCount) return item.metrics.restartCount;
+
+  // From status.containerStatuses
+  if (item.status?.containerStatuses?.[0]?.restartCount) {
+    return item.status.containerStatuses[0].restartCount;
+  }
+
+  return 0;
+}
+
+/**
  * Status Badge
  */
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status?: string }) {
+  if (!status) {
+    return <Badge variant="secondary">Unknown</Badge>;
+  }
+
+  const statusLower = status.toLowerCase();
+
   const variant =
-    status === "Running"
+    statusLower === "running"
       ? "default"
-      : status === "Pending"
+      : statusLower === "pending"
         ? "secondary"
-        : "destructive";
+        : statusLower.includes("crash") || statusLower.includes("fail")
+          ? "destructive"
+          : "outline";
 
   return <Badge variant={variant}>{status}</Badge>;
 }

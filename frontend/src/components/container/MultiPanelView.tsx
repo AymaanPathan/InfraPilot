@@ -4,7 +4,7 @@ import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PodGrid } from "./PodsGrid";
-import { LogsViewer } from "./LogsViewew";
+import { LogsViewer } from "./LogsViewer";
 import { EventsTimeline } from "./EventsTimeline";
 import { ExplanationDisplay } from "./Explanationcomponents";
 import { Grid, Columns, Layers } from "lucide-react";

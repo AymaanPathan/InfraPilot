@@ -36,7 +36,7 @@ import {
   ClusterMetrics,
   clusterMetricsSchema,
 } from "@/components/container/ClusterMetrics";
-import { LogsViewer } from "@/components/container/LogsViewew";
+import { LogsViewer } from "@/components/container/LogsViewer";
 import {
   NamespacesList,
   namespacesListSchema,
