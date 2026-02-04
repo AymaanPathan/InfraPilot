@@ -758,6 +758,9 @@ async function handleFilteredRequest(
 /**
  * Build cluster overview
  */
+/**
+ * Build cluster overview with REAL CPU/Memory metrics
+ */
 async function buildClusterOverview(): Promise<any> {
   const [nodes, pods, deployments, services, version, uptimeHours] =
     await Promise.all([
@@ -772,6 +775,74 @@ async function buildClusterOverview(): Promise<any> {
   const runningPods = pods.filter((p) => p.status?.phase === "Running");
   const failedPods = pods.filter((p) => p.status?.phase === "Failed");
   const pendingPods = pods.filter((p) => p.status?.phase === "Pending");
+
+  // ============================================
+  // NEW: Calculate CPU and Memory usage
+  // ============================================
+  let cpuUsage = 0;
+  let memoryUsage = 0;
+  let storageUsage = 0;
+
+  try {
+    // Get node metrics
+    const nodeMetrics = await k8sClient.getNodeMetrics();
+
+    if (nodeMetrics && nodeMetrics.length > 0) {
+      // Calculate total capacity from nodes
+      let totalCpuCapacity = 0;
+      let totalMemoryCapacity = 0;
+      let totalCpuUsage = 0;
+      let totalMemoryUsage = 0;
+
+      // Get capacity from node specs
+      nodes.forEach((node: any) => {
+        const cpuCapacity = node.status?.capacity?.cpu || "0";
+        const memoryCapacity = node.status?.capacity?.memory || "0Ki";
+
+        totalCpuCapacity += parseCpuToCores(cpuCapacity);
+        totalMemoryCapacity += parseMemoryToBytes(memoryCapacity);
+      });
+
+      // Get current usage from metrics
+      nodeMetrics.forEach((metric: any) => {
+        const cpuUsageStr = metric.usage?.cpu || "0m";
+        const memoryUsageStr = metric.usage?.memory || "0Ki";
+
+        totalCpuUsage += parseCpuToCores(cpuUsageStr);
+        totalMemoryUsage += parseMemoryToBytes(memoryUsageStr);
+      });
+
+      // Calculate percentages
+      cpuUsage =
+        totalCpuCapacity > 0
+          ? Math.round((totalCpuUsage / totalCpuCapacity) * 100)
+          : 0;
+
+      memoryUsage =
+        totalMemoryCapacity > 0
+          ? Math.round((totalMemoryUsage / totalMemoryCapacity) * 100)
+          : 0;
+
+      // Storage is harder to get - set to 0 for now
+      storageUsage = 0;
+
+      logger.info("Cluster metrics calculated", {
+        cpuUsage: `${cpuUsage}%`,
+        memoryUsage: `${memoryUsage}%`,
+        totalCpuUsage: totalCpuUsage.toFixed(2),
+        totalCpuCapacity: totalCpuCapacity.toFixed(2),
+        totalMemoryUsage: formatBytes(totalMemoryUsage),
+        totalMemoryCapacity: formatBytes(totalMemoryCapacity),
+      });
+    } else {
+      logger.warn("Node metrics not available - using 0% usage");
+    }
+  } catch (error) {
+    logger.warn("Failed to get node metrics for cluster overview", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Keep cpuUsage and memoryUsage at 0
+  }
 
   return {
     totalNodes: nodes.length,
@@ -789,12 +860,17 @@ async function buildClusterOverview(): Promise<any> {
     totalDeployments: deployments.length,
     totalServices: services.length,
 
-    version: version || "unknown",
-    uptimeHours: uptimeHours ?? null,
+    cpuUsage, // ← NOW POPULATED WITH REAL DATA
+    memoryUsage, // ← NOW POPULATED WITH REAL DATA
+    storageUsage, // ← Set to 0 for now
+
+    uptime: uptimeHours ? `${uptimeHours}h` : "unknown",
+    clusterVersion: version || "unknown",
 
     timestamp: new Date().toISOString(),
   };
 }
+
 
 /**
  * Build resource usage report

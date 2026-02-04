@@ -326,11 +326,6 @@ export function DevConsole({
       >
         <Terminal className="w-4 h-4 text-white" />
         <span className="text-sm font-medium text-white">Dev Console</span>
-        {logs.length > 0 && (
-          <span className="bg-neutral-700 px-2 py-0.5 rounded text-xs">
-            {logs.length}
-          </span>
-        )}
       </button>
     );
   }
