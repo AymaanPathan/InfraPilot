@@ -720,6 +720,25 @@ export class KubernetesClient {
       return null;
     }
   }
+  async getPodMetricsSafe(
+    name: string,
+    namespace: string,
+  ): Promise<any | null> {
+    try {
+      return await this.getPodMetrics(name, namespace);
+    } catch (error: any) {
+      const errorMessage = error?.message || "";
+      if (errorMessage.includes("METRICS_UNAVAILABLE")) {
+        logger.debug("Metrics unavailable for pod (expected)", {
+          name,
+          namespace,
+        });
+        return null;
+      }
+      // Re-throw other errors
+      throw error;
+    }
+  }
 }
 
 // Export singleton and factory
