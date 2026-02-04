@@ -302,11 +302,12 @@ function EmptyState({
 
 /**
  * Helper function to check if text looks like JSON or internal data
+ * IMPORTANT: No side effects (logging) - called during render
  */
 function isInternalData(text: string): boolean {
   const trimmed = text.trim();
 
-  // Check if it's JSON
+  // Check if it's JSON with componentName
   if (trimmed.startsWith("{") && trimmed.includes("componentName")) {
     return true;
   }
@@ -338,17 +339,15 @@ function MessageBubble({
   )?.content?.autoExplained;
 
   // Get only human-readable text content (filter out JSON and tool results)
+  // IMPORTANT: No logger calls here - this runs during render
   const textContent = Array.isArray(message.content)
     ? message.content
         .filter((item: any) => {
           // Only include text type
           if (item.type !== "text") return false;
 
-          // Filter out JSON-like content
+          // Filter out JSON-like content (no logging here!)
           if (isInternalData(item.text)) {
-            logger.debug("chat", "Filtered out internal data from display", {
-              preview: item.text.substring(0, 100),
-            });
             return false;
           }
 
@@ -365,7 +364,7 @@ function MessageBubble({
         className={`max-w-4xl ${
           isUser
             ? "bg-neutral-900 text-white"
-            : "bg-white border border-neutral-200 text-neutral-900 w-full"
+            : "bg-white  text-neutral-900 w-full"
         } rounded-xl px-6 py-4 transition-all duration-200`}
       >
         {/* Render ONLY clean text content */}
@@ -378,12 +377,9 @@ function MessageBubble({
           </p>
         ))}
 
-        {/* Render component if available */}
         {message.renderedComponent && (
           <div
-            className={
-              textContent.length > 0 ? "mt-4 animate-fadeIn" : "animate-fadeIn"
-            }
+            className={`${textContent.length > 0 ? "mt-4" : ""} animate-fadeIn`}
           >
             {message.renderedComponent}
           </div>
