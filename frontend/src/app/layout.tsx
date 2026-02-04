@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TamboClientProvider } from "./providers";
 import { DevConsole } from "@/components/DevConsole";
+import { ConditionalDevConsole } from "./renderConsole";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,12 +32,7 @@ export default function RootLayout({
       >
         <TamboClientProvider>{children}</TamboClientProvider>
 
-        <DevConsole
-          defaultExpanded={false}
-          position="bottom"
-          maxLogs={1000}
-          persistLogs={true}
-        />
+        <ConditionalDevConsole />
       </body>
     </html>
   );

@@ -167,7 +167,7 @@ export default function Home() {
                 step: "2",
                 title: "AI Selects the Right Tools",
                 description:
-                  "Groq AI reasons about your intent and calls Kubernetes MCP tools automatically",
+                  "Groq AI reasons about your intent and calls Kubernetes  tools automatically",
                 icon: <Brain className="w-8 h-8" />,
               },
               {
@@ -211,12 +211,6 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              {
-                icon: <Zap className="w-6 h-6" />,
-                title: "MCP-Powered",
-                description:
-                  "Direct integration with Kubernetes via Model Context Protocol—no kubectl needed",
-              },
               {
                 icon: <Sparkles className="w-6 h-6" />,
                 title: "Generative UI",
@@ -280,12 +274,10 @@ export default function Home() {
             {[
               { name: "Tambo AI", description: "Generative UI Framework" },
               { name: "Groq", description: "AI Inference" },
-              { name: "MCP", description: "Tool Integration" },
               { name: "Next.js 15", description: "React Framework" },
               { name: "TypeScript", description: "Type Safety" },
               { name: "Tailwind CSS", description: "Styling" },
               { name: "Kubernetes", description: "Container Orchestration" },
-              { name: "Lucide Icons", description: "UI Icons" },
             ].map((tech, i) => (
               <div
                 key={i}

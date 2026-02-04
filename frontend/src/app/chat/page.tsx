@@ -216,39 +216,6 @@ function EmptyState({
 }: {
   onExampleClick: (text: string) => void;
 }) {
-  const examples = [
-    {
-      text: "Show me cluster overview with health metrics",
-      icon: <Activity className="w-5 h-5" />,
-      color: "neutral",
-    },
-    {
-      text: "Get resource usage for all namespaces",
-      icon: <TrendingUp className="w-5 h-5" />,
-      color: "neutral",
-    },
-    {
-      text: "Monitor pod health across the cluster",
-      icon: <Box className="w-5 h-5" />,
-      color: "neutral",
-    },
-    {
-      text: "Show all pods and their current status",
-      icon: <Database className="w-5 h-5" />,
-      color: "neutral",
-    },
-    {
-      text: "Get logs for api-server pod",
-      icon: <Command className="w-5 h-5" />,
-      color: "neutral",
-    },
-    {
-      text: "List all deployments and services",
-      icon: <Network className="w-5 h-5" />,
-      color: "neutral",
-    },
-  ];
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] text-center animate-fadeIn">
       <div className="mb-8">
@@ -270,7 +237,7 @@ function EmptyState({
         using AI.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl w-full">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl w-full">
         {examples.map((example, index) => (
           <button
             key={index}
@@ -288,14 +255,7 @@ function EmptyState({
             </div>
           </button>
         ))}
-      </div>
-
-      <div className="mt-12 flex items-center gap-2 text-xs text-neutral-400">
-        <Sparkles className="w-4 h-4" />
-        <span>
-          Powered by AI • Real-time monitoring • Automatic issue detection
-        </span>
-      </div>
+      </div> */}
     </div>
   );
 }
