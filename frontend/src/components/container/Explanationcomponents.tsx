@@ -30,31 +30,31 @@ export function ExplanationDisplay({
   const config = {
     info: {
       icon: <Info className="w-5 h-5" />,
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-      iconColor: "text-blue-600",
-      titleColor: "text-blue-900",
+      bgColor: "bg-neutral-50",
+      borderColor: "border-neutral-200",
+      iconColor: "text-neutral-700",
+      titleColor: "text-neutral-900",
     },
     warning: {
       icon: <AlertTriangle className="w-5 h-5" />,
       bgColor: "bg-amber-50",
       borderColor: "border-amber-200",
-      iconColor: "text-amber-600",
+      iconColor: "text-amber-700",
       titleColor: "text-amber-900",
     },
     error: {
       icon: <XCircle className="w-5 h-5" />,
       bgColor: "bg-red-50",
       borderColor: "border-red-200",
-      iconColor: "text-red-600",
+      iconColor: "text-red-700",
       titleColor: "text-red-900",
     },
     success: {
       icon: <CheckCircle className="w-5 h-5" />,
-      bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-200",
-      iconColor: "text-emerald-600",
-      titleColor: "text-emerald-900",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+      iconColor: "text-green-700",
+      titleColor: "text-green-900",
     },
   };
 
@@ -62,7 +62,7 @@ export function ExplanationDisplay({
 
   return (
     <div
-      className={`rounded-xl border ${borderColor} ${bgColor} p-6 backdrop-blur-sm ${className} animate-slideUp`}
+      className={`rounded-xl border ${borderColor} ${bgColor} p-6 ${className} animate-slideUp`}
     >
       {/* Header */}
       <div className="flex items-start gap-4 mb-4">
@@ -77,60 +77,60 @@ export function ExplanationDisplay({
           )}
 
           {/* Markdown Content */}
-          <div className="prose prose-sm max-w-none prose-slate">
+          <div className="prose prose-sm max-w-none prose-neutral">
             <ReactMarkdown
               components={{
                 h1: ({ children }) => (
-                  <h1 className="text-2xl font-bold text-slate-900 mb-4 mt-6 first:mt-0">
+                  <h1 className="text-2xl font-semibold text-neutral-900 mb-4 mt-6 first:mt-0">
                     {children}
                   </h1>
                 ),
                 h2: ({ children }) => (
-                  <h2 className="text-xl font-semibold text-slate-800 mb-3 mt-5 first:mt-0">
+                  <h2 className="text-xl font-semibold text-neutral-800 mb-3 mt-5 first:mt-0">
                     {children}
                   </h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 className="text-lg font-semibold text-slate-700 mb-2 mt-4 first:mt-0">
+                  <h3 className="text-lg font-semibold text-neutral-700 mb-2 mt-4 first:mt-0">
                     {children}
                   </h3>
                 ),
                 p: ({ children }) => (
-                  <p className="text-slate-700 leading-relaxed mb-3">
+                  <p className="text-neutral-700 leading-relaxed mb-3">
                     {children}
                   </p>
                 ),
                 ul: ({ children }) => (
-                  <ul className="list-disc list-inside space-y-1 mb-3 text-slate-700">
+                  <ul className="list-disc list-inside space-y-1 mb-3 text-neutral-700">
                     {children}
                   </ul>
                 ),
                 ol: ({ children }) => (
-                  <ol className="list-decimal list-inside space-y-1 mb-3 text-slate-700">
+                  <ol className="list-decimal list-inside space-y-1 mb-3 text-neutral-700">
                     {children}
                   </ol>
                 ),
                 li: ({ children }) => <li className="ml-4">{children}</li>,
                 code: ({ inline, children }: any) =>
                   inline ? (
-                    <code className="bg-slate-200 text-blue-700 px-1.5 py-0.5 rounded text-sm font-mono">
+                    <code className="bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded text-sm font-mono border border-neutral-200">
                       {children}
                     </code>
                   ) : (
-                    <code className="block bg-slate-100 text-slate-800 p-3 rounded-lg text-sm font-mono overflow-x-auto mb-3 border border-slate-200">
+                    <code className="block bg-neutral-100 text-neutral-800 p-3 rounded-lg text-sm font-mono overflow-x-auto mb-3 border border-neutral-200">
                       {children}
                     </code>
                   ),
                 strong: ({ children }) => (
-                  <strong className="font-semibold text-slate-900">
+                  <strong className="font-semibold text-neutral-900">
                     {children}
                   </strong>
                 ),
                 em: ({ children }) => (
-                  <em className="italic text-slate-600">{children}</em>
+                  <em className="italic text-neutral-600">{children}</em>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-slate-300 pl-4 italic text-slate-600 my-3">
+                  <blockquote className="border-l-4 border-neutral-300 pl-4 italic text-neutral-600 my-3">
                     {children}
                   </blockquote>
                 ),
@@ -180,7 +180,7 @@ export function TriageReport({ report, issues, summary }: TriageReportProps) {
             label="Total Pods"
             value={summary.total}
             icon={<TrendingUp className="w-4 h-4" />}
-            color="blue"
+            color="neutral"
           />
           <MetricCard
             label="Issues Found"
@@ -240,7 +240,7 @@ export function TriageReport({ report, issues, summary }: TriageReportProps) {
             <IssueCard key={idx} issue={issue} />
           ))}
           {warningIssues.length > 5 && (
-            <p className="text-sm text-slate-600 ml-7">
+            <p className="text-sm text-neutral-600 ml-7">
               ... and {warningIssues.length - 5} more warnings
             </p>
           )}
@@ -259,23 +259,23 @@ function MetricCard({
   label: string;
   value: number;
   icon: React.ReactNode;
-  color: "blue" | "amber" | "red" | "orange" | "green";
+  color: "neutral" | "amber" | "red" | "orange" | "green";
 }) {
   const colors = {
-    blue: "bg-blue-50 border-blue-200 text-blue-700",
+    neutral: "bg-neutral-50 border-neutral-200 text-neutral-700",
     amber: "bg-amber-50 border-amber-200 text-amber-700",
     red: "bg-red-50 border-red-200 text-red-700",
     orange: "bg-orange-50 border-orange-200 text-orange-700",
-    green: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    green: "bg-green-50 border-green-200 text-green-700",
   };
 
   return (
     <div
-      className={`rounded-xl border ${colors[color]} p-4 backdrop-blur-sm hover:scale-105 transition-transform`}
+      className={`rounded-xl border ${colors[color]} p-4 hover:shadow-sm transition-all`}
     >
       <div className="flex items-center gap-2 mb-1">{icon}</div>
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
-      <div className="text-xs text-slate-600">{label}</div>
+      <div className="text-2xl font-semibold text-neutral-900">{value}</div>
+      <div className="text-xs text-neutral-600">{label}</div>
     </div>
   );
 }
@@ -296,9 +296,9 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
     },
     info: {
       icon: <Info className="w-4 h-4" />,
-      color: "text-blue-700",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
+      color: "text-neutral-700",
+      bgColor: "bg-neutral-50",
+      borderColor: "border-neutral-200",
     },
   };
 
@@ -306,7 +306,7 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
 
   return (
     <div
-      className={`rounded-xl border ${config.borderColor} ${config.bgColor} p-4 backdrop-blur-sm hover:shadow-md transition-all`}
+      className={`rounded-xl border ${config.borderColor} ${config.bgColor} p-4 hover:shadow-sm transition-all`}
     >
       <div className="flex items-start gap-3">
         <div className={`${config.color} flex-shrink-0 mt-0.5`}>
@@ -314,14 +314,16 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold text-slate-900 truncate">
+            <h4 className="font-semibold text-neutral-900 truncate">
               {issue.podName}
             </h4>
-            <span className="text-xs text-slate-500">({issue.namespace})</span>
+            <span className="text-xs text-neutral-500">
+              ({issue.namespace})
+            </span>
           </div>
-          <p className="text-sm text-slate-700 mb-2">{issue.description}</p>
+          <p className="text-sm text-neutral-700 mb-2">{issue.description}</p>
           {issue.metrics && (
-            <div className="flex items-center gap-4 text-xs text-slate-600">
+            <div className="flex items-center gap-4 text-xs text-neutral-600">
               {issue.metrics.status && (
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3" />
@@ -350,10 +352,10 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
 
 export function SmartSuggestions({ suggestions }: { suggestions: string[] }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 backdrop-blur-sm shadow-sm">
+    <div className="rounded-xl border border-neutral-200 bg-white p-6">
       <div className="flex items-center gap-2 mb-4">
-        <Lightbulb className="w-5 h-5 text-amber-600" />
-        <h3 className="text-lg font-semibold text-slate-900">
+        <Lightbulb className="w-5 h-5 text-neutral-700" />
+        <h3 className="text-lg font-semibold text-neutral-900">
           Smart Suggestions
         </h3>
       </div>
@@ -361,7 +363,7 @@ export function SmartSuggestions({ suggestions }: { suggestions: string[] }) {
         {suggestions.slice(0, 6).map((suggestion, idx) => (
           <button
             key={idx}
-            className="text-left px-4 py-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-blue-300 text-sm text-slate-700 hover:text-slate-900 transition-all hover:scale-105"
+            className="text-left px-4 py-3 rounded-lg bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-300 text-sm text-neutral-700 hover:text-neutral-900 transition-all"
           >
             {suggestion}
           </button>

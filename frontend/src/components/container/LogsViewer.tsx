@@ -119,13 +119,13 @@ export function LogsViewer({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-200">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+            <Terminal className="w-5 h-5 text-neutral-700" />
             Logs: {podName}
           </h3>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-neutral-600">
             {namespace}
             {selectedContainer && ` • ${selectedContainer}`}
           </p>
@@ -133,23 +133,23 @@ export function LogsViewer({
 
         {/* Stats */}
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full">
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-            <span className="text-slate-700 font-medium">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 border border-neutral-200 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-neutral-600" />
+            <span className="text-neutral-700 font-medium">
               {filteredLogs.length} lines
             </span>
           </div>
           {errorCount > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
               <span className="text-red-700 font-medium">
                 {errorCount} errors
               </span>
             </div>
           )}
           {warningCount > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-600" />
               <span className="text-amber-700 font-medium">
                 {warningCount} warnings
               </span>
@@ -166,7 +166,7 @@ export function LogsViewer({
             <select
               value={selectedContainer}
               onChange={(e) => handleContainerSelect(e.target.value)}
-              className="appearance-none px-4 py-2 pr-10 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-slate-50 transition-colors"
+              className="appearance-none px-4 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent hover:bg-neutral-50 transition-colors"
             >
               {containers.map((cont) => (
                 <option key={cont} value={cont}>
@@ -174,26 +174,26 @@ export function LogsViewer({
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
           </div>
         )}
 
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search logs..."
-            className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-10 py-2 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-neutral-100 rounded transition-colors"
             >
-              <X className="w-3.5 h-3.5 text-slate-400" />
+              <X className="w-3.5 h-3.5 text-neutral-400" />
             </button>
           )}
         </div>
@@ -204,8 +204,8 @@ export function LogsViewer({
             onClick={() => setShowOnlyErrors(!showOnlyErrors)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
               showOnlyErrors
-                ? "bg-red-100 text-red-700 border border-red-200"
-                : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                ? "bg-red-50 text-red-700 border border-red-200"
+                : "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50"
             }`}
           >
             <Filter className="w-4 h-4" />
@@ -218,7 +218,7 @@ export function LogsViewer({
           {onRefresh && (
             <button
               onClick={onRefresh}
-              className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 transition-all duration-200"
+              className="p-2 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition-all duration-200"
               title="Refresh logs"
             >
               <RefreshCw className="w-4 h-4" />
@@ -227,11 +227,11 @@ export function LogsViewer({
 
           <button
             onClick={handleCopy}
-            className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 transition-all duration-200"
+            className="p-2 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition-all duration-200"
             title="Copy logs"
           >
             {copied ? (
-              <CheckCircle className="w-4 h-4 text-emerald-600" />
+              <CheckCircle className="w-4 h-4 text-green-600" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
@@ -239,7 +239,7 @@ export function LogsViewer({
 
           <button
             onClick={handleDownload}
-            className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 transition-all duration-200"
+            className="p-2 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition-all duration-200"
             title="Download logs"
           >
             <Download className="w-4 h-4" />
@@ -248,7 +248,7 @@ export function LogsViewer({
       </div>
 
       {/* Logs Container */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         <div
           ref={containerRef}
           className="overflow-y-auto scrollbar-thin"
@@ -267,8 +267,8 @@ export function LogsViewer({
               ))
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Terminal className="w-8 h-8 text-slate-300 mb-3" />
-                <p className="text-slate-500 text-sm">
+                <Terminal className="w-8 h-8 text-neutral-300 mb-3" />
+                <p className="text-neutral-500 text-sm">
                   {logLines.length === 0
                     ? "No logs available"
                     : "No logs match your filters"}
@@ -286,7 +286,7 @@ export function LogsViewer({
               setAutoScroll(true);
               logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="absolute bottom-4 right-4 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+            className="absolute bottom-4 right-4 px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-white text-xs rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
           >
             <RefreshCw className="w-3 h-3" />
             Scroll to bottom
@@ -319,16 +319,16 @@ function LogLine({
 
   return (
     <div
-      className={`flex items-start gap-3 px-2 py-1 hover:bg-slate-50 rounded group ${
+      className={`flex items-start gap-3 px-2 py-1 hover:bg-neutral-50 rounded group ${
         highlightErrors && isError
-          ? "bg-red-50 border-l-2 border-red-500"
+          ? "bg-red-50 border-l-2 border-red-600"
           : highlightErrors && isWarning
-            ? "bg-amber-50 border-l-2 border-amber-500"
+            ? "bg-amber-50 border-l-2 border-amber-600"
             : ""
       }`}
     >
       {/* Line number */}
-      <span className="text-slate-400 select-none w-10 text-right flex-shrink-0 text-xs">
+      <span className="text-neutral-400 select-none w-10 text-right flex-shrink-0 text-xs">
         {index + 1}
       </span>
 
@@ -336,9 +336,9 @@ function LogLine({
       {highlightErrors && (isError || isWarning) && (
         <div className="flex-shrink-0 mt-0.5">
           {isError ? (
-            <AlertTriangle className="w-3 h-3 text-red-600" />
+            <AlertTriangle className="w-3 h-3 text-red-700" />
           ) : (
-            <AlertTriangle className="w-3 h-3 text-amber-600" />
+            <AlertTriangle className="w-3 h-3 text-amber-700" />
           )}
         </div>
       )}
@@ -350,7 +350,7 @@ function LogLine({
             ? "text-red-700"
             : isWarning
               ? "text-amber-700"
-              : "text-slate-700"
+              : "text-neutral-700"
         }`}
         dangerouslySetInnerHTML={{ __html: highlightedText }}
       />
@@ -383,6 +383,6 @@ function highlightSearchTerm(text: string, searchTerm: string): string {
   const regex = new RegExp(`(${searchTerm})`, "gi");
   return text.replace(
     regex,
-    '<mark class="bg-blue-200 text-blue-900 rounded px-0.5">$1</mark>',
+    '<mark class="bg-neutral-200 text-neutral-900 rounded px-0.5">$1</mark>',
   );
 }

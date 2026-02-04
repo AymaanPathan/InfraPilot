@@ -122,45 +122,12 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex flex-col">
-      {/* Modern Header */}
-      <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl blur-lg opacity-20" />
-              <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl">
-                <Command className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                Kubernetes Assistant
-              </h1>
-              <p className="text-xs text-slate-500">
-                AI-powered cluster management
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span className="text-xs font-medium text-blue-700">
-                AI-Powered
-              </span>
-            </div>
-            <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
-              <Activity className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-[#fafafa] flex flex-col">
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-5xl mx-auto px-6 py-8">
+          <div className="max-w-4xl mx-auto px-6 py-8">
             {messages.length === 0 ? (
               <EmptyState onExampleClick={setInputValue} />
             ) : (
@@ -229,12 +196,12 @@ export default function ChatPage() {
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
+          background: #d4d4d4;
           border-radius: 3px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
+          background: #a3a3a3;
         }
       `}</style>
     </div>
@@ -250,81 +217,69 @@ function EmptyState({
     {
       text: "Show me cluster overview with health metrics",
       icon: <Activity className="w-5 h-5" />,
-      gradient: "from-emerald-500 to-teal-500",
-      bgGradient: "from-emerald-50 to-teal-50",
+      color: "neutral",
     },
     {
       text: "Get resource usage for all namespaces",
       icon: <TrendingUp className="w-5 h-5" />,
-      gradient: "from-violet-500 to-purple-500",
-      bgGradient: "from-violet-50 to-purple-50",
+      color: "neutral",
     },
     {
       text: "Monitor pod health across the cluster",
       icon: <Box className="w-5 h-5" />,
-      gradient: "from-amber-500 to-orange-500",
-      bgGradient: "from-amber-50 to-orange-50",
+      color: "neutral",
     },
     {
       text: "Show all pods and their current status",
       icon: <Database className="w-5 h-5" />,
-      gradient: "from-cyan-500 to-blue-500",
-      bgGradient: "from-cyan-50 to-blue-50",
+      color: "neutral",
     },
     {
       text: "Get logs for api-server pod",
       icon: <Command className="w-5 h-5" />,
-      gradient: "from-blue-500 to-indigo-500",
-      bgGradient: "from-blue-50 to-indigo-50",
+      color: "neutral",
     },
     {
       text: "List all deployments and services",
       icon: <Network className="w-5 h-5" />,
-      gradient: "from-green-500 to-emerald-500",
-      bgGradient: "from-green-50 to-emerald-50",
+      color: "neutral",
     },
   ];
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] text-center animate-fadeIn">
-      <div className="relative mb-8">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-purple-500/20 blur-3xl rounded-full animate-pulse" />
-        <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl shadow-xl">
-          <MessageCircle className="w-12 h-12 text-white" />
+      <div className="mb-8">
+        <div className="bg-neutral-100 p-6 rounded-2xl">
+          <MessageCircle className="w-12 h-12 text-neutral-700" />
         </div>
       </div>
 
-      <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent">
+      <h2 className="text-3xl font-semibold mb-3 text-neutral-900">
         Welcome to your Kubernetes Assistant
       </h2>
 
-      <p className="text-slate-600 mb-12 max-w-2xl text-lg leading-relaxed">
+      <p className="text-neutral-600 mb-12 max-w-2xl text-base leading-relaxed">
         Ask me anything about your cluster. I can monitor resources, view logs,
         check health, analyze metrics,{" "}
-        <span className="font-semibold text-blue-600">
+        <span className="font-medium text-neutral-900">
           and explain what's wrong
         </span>{" "}
         using AI.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl w-full">
         {examples.map((example, index) => (
           <button
             key={index}
             onClick={() => onExampleClick(example.text)}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1"
+            className="group relative overflow-hidden rounded-xl border border-neutral-200 bg-white p-5 text-left transition-all duration-200 hover:border-neutral-300 hover:shadow-sm"
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            <div
-              className={`absolute inset-0 bg-gradient-to-br ${example.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-            />
-            <div className="relative flex flex-col gap-4">
-              <div
-                className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${example.gradient} shadow-sm`}
-              >
-                <div className="text-white">{example.icon}</div>
+            <div className="flex flex-col gap-3">
+              <div className="inline-flex p-2.5 rounded-lg bg-neutral-100 text-neutral-700 w-fit">
+                {example.icon}
               </div>
-              <span className="text-sm text-slate-700 leading-relaxed font-medium">
+              <span className="text-sm text-neutral-700 leading-relaxed">
                 {example.text}
               </span>
             </div>
@@ -332,7 +287,7 @@ function EmptyState({
         ))}
       </div>
 
-      <div className="mt-12 flex items-center gap-2 text-xs text-slate-400">
+      <div className="mt-12 flex items-center gap-2 text-xs text-neutral-400">
         <Sparkles className="w-4 h-4" />
         <span>
           Powered by AI • Real-time monitoring • Automatic issue detection
@@ -366,9 +321,9 @@ function MessageBubble({
       <div
         className={`max-w-4xl ${
           isUser
-            ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20"
-            : "bg-white border border-slate-200 text-slate-900 w-full shadow-sm"
-        } rounded-2xl px-6 py-4 transition-all duration-300`}
+            ? "bg-neutral-900 text-white"
+            : "bg-white border border-neutral-200 text-neutral-900 w-full"
+        } rounded-xl px-6 py-4 transition-all duration-200`}
       >
         {/* Render text content */}
         {Array.isArray(message.content) &&
@@ -376,7 +331,7 @@ function MessageBubble({
             item.type === "text" ? (
               <p
                 key={i}
-                className={`text-sm whitespace-pre-wrap leading-relaxed ${isUser ? "text-white" : "text-slate-700"}`}
+                className={`text-sm whitespace-pre-wrap leading-relaxed ${isUser ? "text-white" : "text-neutral-700"}`}
               >
                 {item.text}
               </p>
@@ -391,9 +346,9 @@ function MessageBubble({
         {/* Render AI explanation if available */}
         {explanation && !isUser && (
           <div className="mt-6 animate-fadeIn">
-            <div className="flex items-center gap-2 mb-3 text-sm text-blue-600">
+            <div className="flex items-center gap-2 mb-3 text-sm text-neutral-600">
               <Brain className="w-4 h-4" />
-              <span className="font-semibold">
+              <span className="font-medium">
                 {autoExplained ? "AI Auto-Analysis" : "AI Explanation"}
               </span>
             </div>
@@ -401,28 +356,28 @@ function MessageBubble({
               explanation={explanation}
               type="info"
               showIcon={false}
-              className="bg-blue-50 border-blue-200"
+              className="bg-neutral-50 border-neutral-200"
             />
           </div>
         )}
 
         {/* Debug info for development */}
         {isLatest && !isUser && process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs font-mono">
-            <div className="text-slate-600 mb-2 font-semibold">
+          <div className="mt-4 p-3 bg-neutral-50 rounded-lg border border-neutral-200 text-xs font-mono">
+            <div className="text-neutral-600 mb-2 font-semibold">
               🔍 Debug Info
             </div>
-            <div className="space-y-1 text-slate-500">
+            <div className="space-y-1 text-neutral-500">
               <div>
-                Role: <span className="text-blue-600">{message.role}</span>
+                Role: <span className="text-neutral-700">{message.role}</span>
               </div>
               <div>
                 Component:{" "}
                 <span
                   className={
                     message.renderedComponent
-                      ? "text-emerald-600"
-                      : "text-red-600"
+                      ? "text-green-700"
+                      : "text-red-700"
                   }
                 >
                   {message.renderedComponent ? "✓ Rendered" : "✗ Missing"}
@@ -432,7 +387,7 @@ function MessageBubble({
                 Explanation:{" "}
                 <span
                   className={
-                    explanation ? "text-emerald-600" : "text-slate-400"
+                    explanation ? "text-green-700" : "text-neutral-400"
                   }
                 >
                   {explanation ? "✓ Present" : "✗ None"}
@@ -440,7 +395,7 @@ function MessageBubble({
               </div>
               <div>
                 Content blocks:{" "}
-                <span className="text-amber-600">
+                <span className="text-neutral-700">
                   {message.content?.length || 0}
                 </span>
               </div>
@@ -454,8 +409,8 @@ function MessageBubble({
 
 function LoadingIndicator() {
   return (
-    <div className="flex items-center gap-3 text-slate-600 px-6 py-4 animate-slideUp">
-      <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+    <div className="flex items-center gap-3 text-neutral-600 px-6 py-4 animate-slideUp">
+      <Loader2 className="w-5 h-5 animate-spin text-neutral-600" />
       <div className="flex gap-1">
         <span className="text-sm">Analyzing cluster</span>
         <span className="animate-pulse">.</span>
@@ -493,14 +448,14 @@ function ChatInput({
   };
 
   return (
-    <div className="border-t border-slate-200 bg-white/80 backdrop-blur-xl sticky bottom-0 z-10">
-      <div className="max-w-5xl mx-auto px-6 py-5">
+    <div className="border-t border-neutral-200 bg-white/80 backdrop-blur-xl sticky bottom-0 z-10">
+      <div className="max-w-4xl mx-auto px-6 py-5">
         <form onSubmit={handleSubmit} className="relative">
           <div
-            className={`relative rounded-2xl transition-all duration-300 ${
+            className={`relative rounded-xl transition-all duration-200 ${
               isFocused
-                ? "ring-2 ring-blue-500 shadow-lg shadow-blue-500/10"
-                : "ring-1 ring-slate-200"
+                ? "ring-2 ring-neutral-900 shadow-sm"
+                : "ring-1 ring-neutral-200"
             }`}
           >
             <input
@@ -511,14 +466,14 @@ function ChatInput({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder="Ask about your cluster... (e.g., 'show cluster overview')"
-              className="w-full px-5 py-4 pr-14 bg-white rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none transition-all duration-300"
+              className="w-full px-5 py-3.5 pr-14 bg-white rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all duration-200"
               disabled={isLoading}
               autoComplete="off"
             />
             <button
               type="submit"
               disabled={isLoading || !value.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-300 hover:scale-105 disabled:scale-100 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 group"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 hover:scale-105 disabled:scale-100 group"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -529,9 +484,9 @@ function ChatInput({
           </div>
         </form>
 
-        <p className="text-xs text-slate-500 mt-3 text-center">
+        <p className="text-xs text-neutral-500 mt-3 text-center">
           Press{" "}
-          <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-slate-700 font-mono">
+          <kbd className="px-2 py-1 bg-neutral-100 border border-neutral-200 rounded text-neutral-700 font-mono text-xs">
             Enter
           </kbd>{" "}
           to send • AI will auto-explain issues

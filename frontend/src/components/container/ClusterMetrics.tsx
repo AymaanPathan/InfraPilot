@@ -36,7 +36,7 @@ export const clusterMetricsSchema = z.object({
     .optional(),
   trends: z
     .object({
-      podsChange: z.number().optional(), // +/- number or percentage
+      podsChange: z.number().optional(),
       deploymentsChange: z.number().optional(),
     })
     .optional(),
@@ -54,30 +54,30 @@ export function ClusterMetrics({
     switch (status) {
       case "healthy":
         return {
-          bg: "bg-green-500/20",
-          text: "text-green-300",
-          border: "border-green-500/30",
+          bg: "bg-green-50",
+          text: "text-green-700",
+          border: "border-green-200",
           icon: <CheckCircle className="w-5 h-5" />,
         };
       case "warning":
         return {
-          bg: "bg-yellow-500/20",
-          text: "text-yellow-300",
-          border: "border-yellow-500/30",
+          bg: "bg-amber-50",
+          text: "text-amber-700",
+          border: "border-amber-200",
           icon: <AlertTriangle className="w-5 h-5" />,
         };
       case "critical":
         return {
-          bg: "bg-red-500/20",
-          text: "text-red-300",
-          border: "border-red-500/30",
+          bg: "bg-red-50",
+          text: "text-red-700",
+          border: "border-red-200",
           icon: <AlertTriangle className="w-5 h-5" />,
         };
       default:
         return {
-          bg: "bg-blue-500/20",
-          text: "text-blue-300",
-          border: "border-blue-500/30",
+          bg: "bg-neutral-50",
+          text: "text-neutral-700",
+          border: "border-neutral-200",
           icon: <Activity className="w-5 h-5" />,
         };
     }
@@ -87,16 +87,16 @@ export function ClusterMetrics({
 
   const getTrendIcon = (change?: number) => {
     if (!change) return null;
-    if (change > 0) return <TrendingUp className="w-4 h-4 text-green-400" />;
-    if (change < 0) return <TrendingDown className="w-4 h-4 text-red-400" />;
+    if (change > 0) return <TrendingUp className="w-4 h-4 text-green-600" />;
+    if (change < 0) return <TrendingDown className="w-4 h-4 text-red-600" />;
     return null;
   };
 
   const getUsageColor = (percent?: number) => {
-    if (!percent) return "bg-slate-500";
-    if (percent >= 90) return "bg-red-500";
-    if (percent >= 70) return "bg-yellow-500";
-    return "bg-green-500";
+    if (!percent) return "bg-neutral-300";
+    if (percent >= 90) return "bg-red-600";
+    if (percent >= 70) return "bg-amber-600";
+    return "bg-green-600";
   };
 
   return (
@@ -104,8 +104,10 @@ export function ClusterMetrics({
       {/* Header with Health Status */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Activity className="w-6 h-6 text-blue-400" />
-          <h3 className="text-xl font-semibold text-white">Cluster Metrics</h3>
+          <Activity className="w-6 h-6 text-neutral-700" />
+          <h3 className="text-xl font-semibold text-neutral-900">
+            Cluster Metrics
+          </h3>
         </div>
         {health && (
           <div
@@ -120,41 +122,41 @@ export function ClusterMetrics({
       {/* Main Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Nodes */}
-        <div className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/30 rounded-xl p-4">
-          <div className="text-sm text-blue-300 mb-2">Nodes</div>
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+          <div className="text-sm text-neutral-600 mb-2">Nodes</div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-white">
+            <span className="text-3xl font-semibold text-neutral-900">
               {summary.healthyNodes}
             </span>
-            <span className="text-blue-300">/ {summary.totalNodes}</span>
+            <span className="text-neutral-500">/ {summary.totalNodes}</span>
           </div>
-          <div className="mt-2 text-xs text-blue-300/70">
+          <div className="mt-2 text-xs text-neutral-500">
             {((summary.healthyNodes / summary.totalNodes) * 100).toFixed(0)}%
             healthy
           </div>
         </div>
 
         {/* Pods */}
-        <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/30 rounded-xl p-4">
-          <div className="text-sm text-green-300 mb-2 flex items-center justify-between">
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+          <div className="text-sm text-neutral-600 mb-2 flex items-center justify-between">
             <span>Pods</span>
             {trends?.podsChange !== undefined &&
               getTrendIcon(trends.podsChange)}
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-white">
+            <span className="text-3xl font-semibold text-neutral-900">
               {summary.runningPods}
             </span>
-            <span className="text-green-300">/ {summary.totalPods}</span>
+            <span className="text-neutral-500">/ {summary.totalPods}</span>
           </div>
-          <div className="mt-2 text-xs text-green-300/70">
+          <div className="mt-2 text-xs text-neutral-500">
             {summary.pendingPods !== undefined && summary.pendingPods > 0 && (
-              <span className="text-yellow-400">
+              <span className="text-amber-600">
                 {summary.pendingPods} pending
               </span>
             )}
             {summary.failedPods !== undefined && summary.failedPods > 0 && (
-              <span className="text-red-400 ml-2">
+              <span className="text-red-600 ml-2">
                 {summary.failedPods} failed
               </span>
             )}
@@ -163,48 +165,48 @@ export function ClusterMetrics({
 
         {/* Deployments */}
         {summary.totalDeployments !== undefined && (
-          <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/30 rounded-xl p-4">
-            <div className="text-sm text-purple-300 mb-2 flex items-center justify-between">
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+            <div className="text-sm text-neutral-600 mb-2 flex items-center justify-between">
               <span>Deployments</span>
               {trends?.deploymentsChange !== undefined &&
                 getTrendIcon(trends.deploymentsChange)}
             </div>
-            <div className="text-3xl font-bold text-white">
+            <div className="text-3xl font-semibold text-neutral-900">
               {summary.totalDeployments}
             </div>
-            <div className="mt-2 text-xs text-purple-300/70">active</div>
+            <div className="mt-2 text-xs text-neutral-500">active</div>
           </div>
         )}
 
         {/* Services */}
         {summary.totalServices !== undefined && (
-          <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/30 rounded-xl p-4">
-            <div className="text-sm text-orange-300 mb-2">Services</div>
-            <div className="text-3xl font-bold text-white">
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+            <div className="text-sm text-neutral-600 mb-2">Services</div>
+            <div className="text-3xl font-semibold text-neutral-900">
               {summary.totalServices}
             </div>
-            <div className="mt-2 text-xs text-orange-300/70">exposed</div>
+            <div className="mt-2 text-xs text-neutral-500">exposed</div>
           </div>
         )}
       </div>
 
       {/* Resource Usage */}
       {resourceUsage && (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-yellow-400" />
+        <div className="bg-white border border-neutral-200 rounded-xl p-5">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-neutral-600" />
             Resource Usage
           </h4>
           <div className="space-y-4">
             {resourceUsage.cpuUsagePercent !== undefined && (
               <div>
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-slate-300">CPU</span>
-                  <span className="text-white font-semibold">
+                  <span className="text-neutral-600">CPU</span>
+                  <span className="text-neutral-900 font-semibold">
                     {resourceUsage.cpuUsagePercent}%
                   </span>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${getUsageColor(resourceUsage.cpuUsagePercent)}`}
                     style={{ width: `${resourceUsage.cpuUsagePercent}%` }}
@@ -216,12 +218,12 @@ export function ClusterMetrics({
             {resourceUsage.memoryUsagePercent !== undefined && (
               <div>
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-slate-300">Memory</span>
-                  <span className="text-white font-semibold">
+                  <span className="text-neutral-600">Memory</span>
+                  <span className="text-neutral-900 font-semibold">
                     {resourceUsage.memoryUsagePercent}%
                   </span>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${getUsageColor(resourceUsage.memoryUsagePercent)}`}
                     style={{ width: `${resourceUsage.memoryUsagePercent}%` }}
@@ -233,12 +235,12 @@ export function ClusterMetrics({
             {resourceUsage.podUsagePercent !== undefined && (
               <div>
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-slate-300">Pod Capacity</span>
-                  <span className="text-white font-semibold">
+                  <span className="text-neutral-600">Pod Capacity</span>
+                  <span className="text-neutral-900 font-semibold">
                     {resourceUsage.podUsagePercent}%
                   </span>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${getUsageColor(resourceUsage.podUsagePercent)}`}
                     style={{ width: `${resourceUsage.podUsagePercent}%` }}
@@ -252,10 +254,10 @@ export function ClusterMetrics({
 
       {/* Health Issues */}
       {health?.issues && health.issues.length > 0 && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-400" />
-            <h4 className="text-sm font-semibold text-yellow-300">
+            <AlertTriangle className="w-5 h-5 text-amber-700" />
+            <h4 className="text-sm font-semibold text-amber-900">
               Active Issues ({health.issues.length})
             </h4>
           </div>
@@ -263,9 +265,9 @@ export function ClusterMetrics({
             {health.issues.map((issue, index) => (
               <li
                 key={index}
-                className="text-sm text-yellow-200/90 flex items-start gap-2"
+                className="text-sm text-amber-800 flex items-start gap-2"
               >
-                <span className="text-yellow-400 mt-1">•</span>
+                <span className="text-amber-600 mt-1">•</span>
                 <span>{issue}</span>
               </li>
             ))}
@@ -275,7 +277,7 @@ export function ClusterMetrics({
 
       {/* Last Check */}
       {health?.lastCheck && (
-        <div className="text-xs text-slate-500 text-center">
+        <div className="text-xs text-neutral-500 text-center">
           Last checked: {health.lastCheck}
         </div>
       )}
