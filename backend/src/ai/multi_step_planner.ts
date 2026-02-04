@@ -48,6 +48,10 @@ export function buildMultiStepPrompt(): string {
    - For pod metrics/CPU/memory: use "describe_pod" NOT "get_pod_metrics"
    - For pod list: use "get_pods" NOT "list_pods"
    - Tool names are case-sensitive and must match exactly
+6. **DO NOT INVENT TOOLS**: There are NO tools called "analyze_logs", "assess_health", "explain_failures", etc.
+   - For "explain" requests: Use the actual data tool (get_pod_logs, get_pod_events) with explanation_needed: true
+   - The backend will automatically analyze the data and provide explanations
+   - NEVER create a second step for analysis - just set explanation_needed flag
 
 # OUTPUT STRUCTURE
 
@@ -195,23 +199,16 @@ User: "get CPU usage for pod nginx"
   "explanation_needed": false
 }
 
-## Example 3: Sequential with explanation
+## Example 3: Logs with explanation
 User: "get logs for nginx and explain errors"
 {
-  "is_multi_step": true,
+  "is_multi_step": false,
   "steps": [
     {
       "step_number": 1,
       "tool": "get_pod_logs",
       "args": {"name": "nginx", "namespace": "default", "tail": 200},
-      "description": "Fetch nginx logs"
-    },
-    {
-      "step_number": 2,
-      "tool": "analyze_logs",
-      "args": {"logs": "$RESULT_FIELD:logs"},
-      "depends_on": [1],
-      "description": "Analyze logs for errors"
+      "description": "Fetch nginx logs and auto-analyze for errors"
     }
   ],
   "merge_strategy": "sequential",
@@ -220,8 +217,8 @@ User: "get logs for nginx and explain errors"
   "explanation_needed": true
 }
 
-## Example 4: Complex aggregation
-User: "show all pods in production with their events and health"
+## Example 4: Multi-step aggregation
+User: "show all pods in production with their events"
 {
   "is_multi_step": true,
   "steps": [
@@ -240,17 +237,10 @@ User: "show all pods in production with their events and health"
       },
       "depends_on": [1],
       "description": "Get events for each pod"
-    },
-    {
-      "step_number": 3,
-      "tool": "assess_health",
-      "args": {"pods": "$RESULT_FIELD:pods"},
-      "depends_on": [1],
-      "description": "Assess health of all pods"
     }
   ],
   "merge_strategy": "aggregate",
-  "final_component": "AggregateView",
+  "final_component": "MultiPanelView",
   "confidence": "high",
   "explanation_needed": false
 }
@@ -258,11 +248,17 @@ User: "show all pods in production with their events and health"
 # DETECTION RULES
 
 Detect multi-step when user says:
-- "X and Y" → Two operations
-- "compare X and Y" → Comparison
-- "show X with their Y" → Aggregation
-- "get X then explain" → Sequential
+- "X and Y" → Two operations (e.g., "show pods and their logs")
+- "compare X and Y" → Comparison (e.g., "compare CPU of pod A and B")
+- "show X with their Y" → Aggregation with loop (e.g., "show all pods with their events")
 - "all X and their Y" → Loop + aggregate
+
+Use SINGLE-STEP with explanation_needed=true when user says:
+- "explain" or "why" → Set explanation_needed: true, do NOT create multi-step
+- "analyze" → Set explanation_needed: true, do NOT create multi-step
+- User wants AI insight → Single tool + explanation flag
+
+CRITICAL: Do NOT create tools like "analyze_logs", "assess_health", or "explain_*" - these are handled automatically via the explanation_needed flag.
 
 # COMMON QUERIES TO TOOL MAPPING
 
