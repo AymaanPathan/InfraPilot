@@ -871,7 +871,6 @@ async function buildClusterOverview(): Promise<any> {
   };
 }
 
-
 /**
  * Build resource usage report
  *
@@ -880,7 +879,19 @@ async function buildClusterOverview(): Promise<any> {
  */
 
 function parseCpuToCores(cpu: string): number {
-  if (cpu.endsWith("m")) return parseInt(cpu) / 1000;
+  if (!cpu || cpu === "0") return 0;
+
+  // Handle nanocores (n) - 1 nanocore = 0.000000001 cores
+  if (cpu.endsWith("n")) {
+    return parseInt(cpu) / 1000000000;
+  }
+
+  // Handle millicores (m) - 1 millicore = 0.001 cores
+  if (cpu.endsWith("m")) {
+    return parseInt(cpu) / 1000;
+  }
+
+  // Handle plain cores (no suffix)
   return parseFloat(cpu);
 }
 
