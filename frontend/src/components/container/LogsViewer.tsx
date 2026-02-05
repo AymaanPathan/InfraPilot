@@ -12,7 +12,21 @@ import {
   AlertTriangle,
   X,
   ChevronDown,
+  Lightbulb,
+  Wrench,
+  ExternalLink,
+  ChevronRight,
 } from "lucide-react";
+
+interface FixSuggestion {
+  title: string;
+  category: string;
+  severity: "critical" | "high" | "medium" | "low";
+  description: string;
+  steps: string[];
+  commands?: string[];
+  documentation?: string;
+}
 
 interface LogsViewerProps {
   logs: string | string[];
@@ -24,6 +38,8 @@ interface LogsViewerProps {
   highlightErrors?: boolean;
   onRefresh?: () => void;
   onContainerChange?: (container: string) => void;
+  fixSuggestions?: FixSuggestion[];
+  hasErrors?: boolean;
 }
 
 export function LogsViewer({
@@ -36,6 +52,8 @@ export function LogsViewer({
   highlightErrors = true,
   onRefresh,
   onContainerChange,
+  fixSuggestions = [],
+  hasErrors = false,
 }: LogsViewerProps) {
   const [selectedContainer, setSelectedContainer] = useState(
     container || containers[0] || "",
@@ -44,6 +62,10 @@ export function LogsViewer({
   const [showOnlyErrors, setShowOnlyErrors] = useState(false);
   const [copied, setCopied] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [showFixPanel, setShowFixPanel] = useState(fixSuggestions.length > 0);
+  const [expandedSuggestion, setExpandedSuggestion] = useState<number | null>(
+    0,
+  );
   const logsEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +110,13 @@ export function LogsViewer({
     return () => container.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Show fix panel when suggestions are available
+  useEffect(() => {
+    if (fixSuggestions.length > 0) {
+      setShowFixPanel(true);
+    }
+  }, [fixSuggestions]);
+
   const handleCopy = () => {
     const text = filteredLogs.join("\n");
     navigator.clipboard.writeText(text);
@@ -111,6 +140,10 @@ export function LogsViewer({
   const handleContainerSelect = (cont: string) => {
     setSelectedContainer(cont);
     onContainerChange?.(cont);
+  };
+
+  const handleCopyCommand = (command: string) => {
+    navigator.clipboard.writeText(command);
   };
 
   const errorCount = logLines.filter(isErrorLine).length;
@@ -157,6 +190,68 @@ export function LogsViewer({
           )}
         </div>
       </div>
+
+      {/* Fix Suggestions Banner */}
+      {fixSuggestions.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <Lightbulb className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                AI-Powered Fix Suggestions Available
+              </h4>
+              <p className="text-xs text-blue-700">
+                We detected {fixSuggestions.length} actionable suggestion
+                {fixSuggestions.length > 1 ? "s" : ""} to resolve errors in your
+                logs
+              </p>
+            </div>
+            <button
+              onClick={() => setShowFixPanel(!showFixPanel)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <Wrench className="w-3.5 h-3.5" />
+              {showFixPanel ? "Hide" : "Show"} Fixes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fix Suggestions Panel */}
+      {showFixPanel && fixSuggestions.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200 p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+            <h4 className="font-semibold text-neutral-900 flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-blue-600" />
+              Fix Suggestions
+            </h4>
+            <button
+              onClick={() => setShowFixPanel(false)}
+              className="text-neutral-400 hover:text-neutral-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {fixSuggestions.map((suggestion, index) => (
+              <FixSuggestionCard
+                key={index}
+                suggestion={suggestion}
+                isExpanded={expandedSuggestion === index}
+                onToggle={() =>
+                  setExpandedSuggestion(
+                    expandedSuggestion === index ? null : index,
+                  )
+                }
+                onCopyCommand={handleCopyCommand}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -293,6 +388,161 @@ export function LogsViewer({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+// Fix Suggestion Card Component
+function FixSuggestionCard({
+  suggestion,
+  isExpanded,
+  onToggle,
+  onCopyCommand,
+}: {
+  suggestion: FixSuggestion;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onCopyCommand: (command: string) => void;
+}) {
+  const severityConfig = {
+    critical: {
+      bg: "bg-red-50",
+      border: "border-red-200",
+      text: "text-red-700",
+      badge: "bg-red-100 text-red-700",
+      icon: "bg-red-100",
+    },
+    high: {
+      bg: "bg-orange-50",
+      border: "border-orange-200",
+      text: "text-orange-700",
+      badge: "bg-orange-100 text-orange-700",
+      icon: "bg-orange-100",
+    },
+    medium: {
+      bg: "bg-amber-50",
+      border: "border-amber-200",
+      text: "text-amber-700",
+      badge: "bg-amber-100 text-amber-700",
+      icon: "bg-amber-100",
+    },
+    low: {
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      text: "text-blue-700",
+      badge: "bg-blue-100 text-blue-700",
+      icon: "bg-blue-100",
+    },
+  };
+
+  const config = severityConfig[suggestion.severity];
+
+  return (
+    <div
+      className={`${config.bg} ${config.border} border rounded-lg overflow-hidden transition-all duration-200`}
+    >
+      {/* Header */}
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/50 transition-colors"
+      >
+        <div className="flex items-center gap-3 flex-1 text-left">
+          <div className={`${config.icon} p-2 rounded-lg`}>
+            <Wrench className={`w-4 h-4 ${config.text}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h5 className={`text-sm font-semibold ${config.text} truncate`}>
+              {suggestion.title}
+            </h5>
+            <div className="flex items-center gap-2 mt-1">
+              <span
+                className={`${config.badge} text-xs px-2 py-0.5 rounded-full font-medium`}
+              >
+                {suggestion.severity.toUpperCase()}
+              </span>
+              <span className="text-xs text-neutral-500">
+                {suggestion.category.replace(/_/g, " ")}
+              </span>
+            </div>
+          </div>
+        </div>
+        <ChevronRight
+          className={`w-4 h-4 text-neutral-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+        />
+      </button>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-neutral-200 bg-white">
+          {/* Description */}
+          <div className="pt-4">
+            <p className="text-sm text-neutral-700">{suggestion.description}</p>
+          </div>
+
+          {/* Steps */}
+          {suggestion.steps.length > 0 && (
+            <div>
+              <h6 className="text-xs font-semibold text-neutral-900 mb-2 flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" />
+                Steps to Fix
+              </h6>
+              <ol className="space-y-2">
+                {suggestion.steps.map((step, index) => (
+                  <li
+                    key={index}
+                    className="flex items-start gap-2 text-xs text-neutral-600"
+                  >
+                    <span className="flex-shrink-0 w-5 h-5 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-700 font-medium text-xs">
+                      {index + 1}
+                    </span>
+                    <span className="flex-1 pt-0.5">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Commands */}
+          {suggestion.commands && suggestion.commands.length > 0 && (
+            <div>
+              <h6 className="text-xs font-semibold text-neutral-900 mb-2 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5" />
+                Commands
+              </h6>
+              <div className="space-y-2">
+                {suggestion.commands.map((command, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 bg-neutral-900 text-green-400 px-3 py-2 rounded-lg font-mono text-xs group"
+                  >
+                    <code className="flex-1">{command}</code>
+                    <button
+                      onClick={() => onCopyCommand(command)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-neutral-800 rounded"
+                      title="Copy command"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Documentation */}
+          {suggestion.documentation && (
+            <a
+              href={suggestion.documentation}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
+            >
+              <ExternalLink className="w-3 h-3" />
+              View Documentation
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }

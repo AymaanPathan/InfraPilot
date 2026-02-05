@@ -18,6 +18,7 @@ import {
   getSmartSuggestions,
 } from "../ai/ToolsRegistry";
 import { k8sClient } from "../ai/KubernetesClient";
+import { generateLogFixSuggestions } from "../ai/logFixService";
 
 const router = Router();
 
@@ -355,6 +356,54 @@ router.post("/command", async (req: Request, res: Response) => {
     console.log("\n🧠 STEP 4: Checking for auto-explanation...");
     let explanation: string | undefined;
 
+    // Update your /api/ai/command endpoint to auto-generate fix suggestions for logs:
+
+    // In the single-step execution section, after getting logs:
+
+    if (singleStep.tool === "get_pod_logs") {
+      console.log(
+        "\n🔧 STEP 3.5: Checking for errors and generating fix suggestions...",
+      );
+
+      try {
+        // Check if logs contain errors
+        const logsText =
+          typeof toolResult.data === "string"
+            ? toolResult.data
+            : toolResult.data.logs || "";
+
+        const hasLogErrors = /error|exception|fail|fatal|panic/i.test(logsText);
+
+        if (hasLogErrors) {
+          console.log("✅ Errors detected - generating AI fix suggestions");
+
+          const fixAnalysis = await generateLogFixSuggestions(
+            logsText,
+            singleStep.args.name,
+            singleStep.args.namespace || "default",
+          );
+
+          // Add fix suggestions to transformed data
+          transformedData.fixSuggestions = fixAnalysis.suggestions;
+          transformedData.hasErrors = fixAnalysis.hasErrors;
+
+          console.log(
+            `✅ Generated ${fixAnalysis.suggestions.length} fix suggestion(s)`,
+          );
+
+          // Auto-add explanation if not already present
+          if (!explanation && fixAnalysis.summary) {
+            explanation = fixAnalysis.summary;
+          }
+        } else {
+          console.log("ℹ️  No errors detected in logs");
+        }
+      } catch (fixError) {
+        console.error("⚠️  Failed to generate fix suggestions:", fixError);
+        // Continue without fix suggestions
+      }
+    }
+
     const shouldExplain =
       multiStepPlan.explanation_needed ||
       explain ||
@@ -524,6 +573,59 @@ router.get("/suggestions", (req: Request, res: Response) => {
     res.status(500).json({
       ok: false,
       error: "Failed to get suggestions",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Add this endpoint to your ai.routes.ts file:
+
+/**
+ * POST /api/ai/log-fixes
+ *
+ * Generate AI-powered fix suggestions for logs
+ */
+router.post("/log-fixes", async (req: Request, res: Response) => {
+  const { logs, podName, namespace = "default" } = req.body;
+
+  try {
+    if (!logs) {
+      return res.status(400).json({
+        ok: false,
+        error: "Logs are required",
+      });
+    }
+
+    if (!podName) {
+      return res.status(400).json({
+        ok: false,
+        error: "Pod name is required",
+      });
+    }
+
+    logger.info("Generating log fix suggestions", {
+      podName,
+      namespace,
+    });
+
+    const fixAnalysis = await generateLogFixSuggestions(
+      logs,
+      podName,
+      namespace,
+    );
+
+    res.json({
+      ok: true,
+      ...fixAnalysis,
+    });
+  } catch (error) {
+    logger.error("Failed to generate log fix suggestions", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    res.status(500).json({
+      ok: false,
+      error: "Failed to generate fix suggestions",
       details: error instanceof Error ? error.message : String(error),
     });
   }

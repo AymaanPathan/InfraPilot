@@ -448,5 +448,51 @@ export function transformK8sResponse(
   }
 }
 
+export function transformPodLogsWithFixes(
+  k8sResponse: any,
+  fixSuggestions: any[],
+  podName: string,
+  namespace: string = "default",
+): any {
+  try {
+    const logsText =
+      typeof k8sResponse === "string"
+        ? k8sResponse
+        : k8sResponse.logs || k8sResponse.content || "";
+
+    const logs = logsText
+      .split("\n")
+      .filter((line: string) => line.trim().length > 0);
+
+    logger.info("Transformed pod logs with fix suggestions", {
+      podName,
+      lineCount: logs.length,
+      suggestionCount: fixSuggestions.length,
+    });
+
+    return {
+      podName,
+      namespace,
+      logs,
+      container: k8sResponse.container,
+      containers: k8sResponse.containers,
+      fixSuggestions,
+      hasErrors: fixSuggestions.length > 0,
+    };
+  } catch (error) {
+    logger.error("Failed to transform pod logs with fixes", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      podName,
+      namespace,
+      logs: [],
+      fixSuggestions: [],
+      hasErrors: false,
+      error: "Failed to load logs",
+    };
+  }
+}
+
 // Maintain backward compatibility
 export const transformMcpResponse = transformK8sResponse;
