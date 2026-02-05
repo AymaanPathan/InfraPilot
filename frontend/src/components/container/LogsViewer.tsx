@@ -439,7 +439,7 @@ function FixSuggestionCard({
 
   return (
     <div
-      className={`${config.bg} ${config.border} border rounded-lg overflow-hidden transition-all duration-200`}
+      className={`${config?.bg} ${config?.border} border rounded-lg overflow-hidden transition-all duration-200`}
     >
       {/* Header */}
       <button
@@ -447,21 +447,21 @@ function FixSuggestionCard({
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/50 transition-colors"
       >
         <div className="flex items-center gap-3 flex-1 text-left">
-          <div className={`${config.icon} p-2 rounded-lg`}>
-            <Wrench className={`w-4 h-4 ${config.text}`} />
+          <div className={`${config?.icon} p-2 rounded-lg`}>
+            <Wrench className={`w-4 h-4 ${config?.text}`} />
           </div>
           <div className="flex-1 min-w-0">
-            <h5 className={`text-sm font-semibold ${config.text} truncate`}>
-              {suggestion.title}
+            <h5 className={`text-sm font-semibold ${config?.text} truncate`}>
+              {suggestion?.title}
             </h5>
             <div className="flex items-center gap-2 mt-1">
               <span
-                className={`${config.badge} text-xs px-2 py-0.5 rounded-full font-medium`}
+                className={`${config?.badge} text-xs px-2 py-0.5 rounded-full font-medium`}
               >
-                {suggestion.severity.toUpperCase()}
+                {suggestion?.severity?.toUpperCase()}
               </span>
               <span className="text-xs text-neutral-500">
-                {suggestion.category.replace(/_/g, " ")}
+                {suggestion?.category?.replace(/_/g, " ")}
               </span>
             </div>
           </div>
@@ -476,18 +476,20 @@ function FixSuggestionCard({
         <div className="px-4 pb-4 space-y-4 border-t border-neutral-200 bg-white">
           {/* Description */}
           <div className="pt-4">
-            <p className="text-sm text-neutral-700">{suggestion.description}</p>
+            <p className="text-sm text-neutral-700">
+              {suggestion?.description}
+            </p>
           </div>
 
           {/* Steps */}
-          {suggestion.steps.length > 0 && (
+          {suggestion?.steps?.length > 0 && (
             <div>
               <h6 className="text-xs font-semibold text-neutral-900 mb-2 flex items-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5" />
                 Steps to Fix
               </h6>
               <ol className="space-y-2">
-                {suggestion.steps.map((step, index) => (
+                {suggestion?.steps?.map((step, index) => (
                   <li
                     key={index}
                     className="flex items-start gap-2 text-xs text-neutral-600"
@@ -503,14 +505,14 @@ function FixSuggestionCard({
           )}
 
           {/* Commands */}
-          {suggestion.commands && suggestion.commands.length > 0 && (
+          {suggestion?.commands && suggestion?.commands.length > 0 && (
             <div>
               <h6 className="text-xs font-semibold text-neutral-900 mb-2 flex items-center gap-1.5">
                 <Terminal className="w-3.5 h-3.5" />
                 Commands
               </h6>
               <div className="space-y-2">
-                {suggestion.commands.map((command, index) => (
+                {suggestion?.commands?.map((command, index) => (
                   <div
                     key={index}
                     className="flex items-center gap-2 bg-neutral-900 text-green-400 px-3 py-2 rounded-lg font-mono text-xs group"
@@ -530,9 +532,9 @@ function FixSuggestionCard({
           )}
 
           {/* Documentation */}
-          {suggestion.documentation && (
+          {suggestion?.documentation && (
             <a
-              href={suggestion.documentation}
+              href={suggestion?.documentation}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
@@ -549,10 +551,10 @@ function FixSuggestionCard({
 
 // Individual log line component
 function LogLine({
-  line,
-  index,
-  highlightErrors,
-  searchTerm,
+  line = "",
+  index = 0,
+  highlightErrors = true,
+  searchTerm = "",
 }: {
   line: string;
   index: number;
@@ -619,19 +621,19 @@ function isErrorLine(line: string): boolean {
     /\[ERR\]/i,
     /ERROR:/i,
   ];
-  return errorPatterns.some((pattern) => pattern.test(line));
+  return errorPatterns?.some((pattern) => pattern?.test(line));
 }
 
 function isWarningLine(line: string): boolean {
   const warningPatterns = [/warn/i, /warning/i, /\[WARN\]/i, /WARN:/i];
-  return warningPatterns.some((pattern) => pattern.test(line));
+  return warningPatterns?.some((pattern) => pattern?.test(line));
 }
 
 function highlightSearchTerm(text: string, searchTerm: string): string {
   if (!searchTerm) return text;
 
   const regex = new RegExp(`(${searchTerm})`, "gi");
-  return text.replace(
+  return text?.replace(
     regex,
     '<mark class="bg-neutral-200 text-neutral-900 rounded px-0.5">$1</mark>',
   );

@@ -360,47 +360,24 @@ router.post("/command", async (req: Request, res: Response) => {
 
     // In the single-step execution section, after getting logs:
 
-    if (singleStep.tool === "get_pod_logs") {
-      console.log(
-        "\n🔧 STEP 3.5: Checking for errors and generating fix suggestions...",
-      );
+    // After getting logs from toolResult
+    if (singleStep.tool === "get_pod_logs" && toolResult.success) {
+      const logsText =
+        typeof toolResult.data === "string"
+          ? toolResult.data
+          : toolResult.data.logs || "";
 
-      try {
-        // Check if logs contain errors
-        const logsText =
-          typeof toolResult.data === "string"
-            ? toolResult.data
-            : toolResult.data.logs || "";
+      // Check for errors
+      if (/error|exception|fail|fatal|panic/i.test(logsText)) {
+        const fixAnalysis = await generateLogFixSuggestions(
+          logsText,
+          singleStep.args.name,
+          singleStep.args.namespace || "default",
+        );
 
-        const hasLogErrors = /error|exception|fail|fatal|panic/i.test(logsText);
-
-        if (hasLogErrors) {
-          console.log("✅ Errors detected - generating AI fix suggestions");
-
-          const fixAnalysis = await generateLogFixSuggestions(
-            logsText,
-            singleStep.args.name,
-            singleStep.args.namespace || "default",
-          );
-
-          // Add fix suggestions to transformed data
-          transformedData.fixSuggestions = fixAnalysis.suggestions;
-          transformedData.hasErrors = fixAnalysis.hasErrors;
-
-          console.log(
-            `✅ Generated ${fixAnalysis.suggestions.length} fix suggestion(s)`,
-          );
-
-          // Auto-add explanation if not already present
-          if (!explanation && fixAnalysis.summary) {
-            explanation = fixAnalysis.summary;
-          }
-        } else {
-          console.log("ℹ️  No errors detected in logs");
-        }
-      } catch (fixError) {
-        console.error("⚠️  Failed to generate fix suggestions:", fixError);
-        // Continue without fix suggestions
+        // Add to transformed data
+        transformedData.fixSuggestions = fixAnalysis.suggestions;
+        transformedData.hasErrors = fixAnalysis.hasErrors;
       }
     }
 

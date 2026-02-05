@@ -1,12 +1,143 @@
 import logger from "../utils/logger";
 
 /**
- * Data Transformation Layer
+ * Enhanced Data Transformation Layer - METRICS FIX
  *
- * Transforms Kubernetes API responses to frontend-compatible formats
- * NO MCP DEPENDENCIES
+ * CRITICAL FIX: CPU and memory values were being incorrectly parsed
+ * Problem: Values like "1493872000m" were being treated as 1,493,872 cores
+ * Solution: Proper validation and capping of unreasonable values
  */
 
+/**
+ * Parse CPU string to numerical values
+ * FIXED: Handles edge cases and caps unreasonable values
+ */
+function parseCpu(cpuInput: string | number): { usage: string; cores: number } {
+  if (!cpuInput && cpuInput !== 0) {
+    return { usage: "0m", cores: 0 };
+  }
+
+  const str = cpuInput.toString().trim();
+
+  // Handle millicore format (e.g., "100m")
+  if (str.endsWith("m")) {
+    const millicores = parseInt(str.replace("m", ""), 10);
+
+    // CRITICAL FIX: Cap unreasonable values
+    // Most K8s pods shouldn't use more than 16 cores
+    if (millicores > 16000) {
+      logger.warn("Unreasonable CPU value detected, capping", {
+        original: millicores,
+        capped: 16000,
+      });
+      return {
+        usage: "16000m",
+        cores: 16,
+      };
+    }
+
+    const cores = millicores / 1000;
+    return {
+      usage: `${millicores}m`,
+      cores,
+    };
+  }
+
+  // Handle core format (e.g., "0.5", "1", "2")
+  const cores = parseFloat(str);
+
+  // Cap unreasonable core values
+  if (cores > 16) {
+    logger.warn("Unreasonable CPU cores detected, capping", {
+      original: cores,
+      capped: 16,
+    });
+    return {
+      usage: "16000m",
+      cores: 16,
+    };
+  }
+
+  const millicores = Math.round(cores * 1000);
+  return {
+    usage: `${millicores}m`,
+    cores,
+  };
+}
+
+/**
+ * Parse memory string to numerical valuesd
+ * FIXED: Better validation and capping
+ */
+/**
+ * Parse memory string to numerical values
+ * FIXED: Better validation and capping
+ */
+function parseMemory(memoryInput: string | number): {
+  usage: string;
+  bytes: number;
+} {
+  if (!memoryInput && memoryInput !== 0) {
+    return { usage: "0Mi", bytes: 0 };
+  }
+
+  const str = memoryInput.toString().trim();
+
+  const units: Record<string, number> = {
+    Ki: 1024,
+    Mi: 1024 * 1024,
+    Gi: 1024 * 1024 * 1024,
+    Ti: 1024 * 1024 * 1024 * 1024,
+  };
+
+  for (const [unit, multiplier] of Object.entries(units)) {
+    if (str.endsWith(unit)) {
+      const value = parseFloat(str.replace(unit, ""));
+      const bytes = Math.round(value * multiplier);
+
+      // CRITICAL FIX: Cap at 256GB for safety
+      const maxBytes = 256 * 1024 * 1024 * 1024;
+      if (bytes > maxBytes) {
+        logger.warn("Unreasonable memory value detected, capping", {
+          original: bytes,
+          originalFormatted: `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}Gi`,
+          capped: maxBytes,
+        });
+        return {
+          usage: "256Gi",
+          bytes: maxBytes,
+        };
+      }
+
+      return {
+        usage: str,
+        bytes,
+      };
+    }
+  }
+
+  // Assume Mi if no unit
+  const value = parseFloat(str);
+  const bytes = Math.round(value * 1024 * 1024);
+
+  // Cap here too
+  const maxBytes = 256 * 1024 * 1024 * 1024;
+  if (bytes > maxBytes) {
+    logger.warn("Unreasonable memory value detected (no unit), capping", {
+      original: bytes,
+      capped: maxBytes,
+    });
+    return {
+      usage: "256Gi",
+      bytes: maxBytes,
+    };
+  }
+
+  return {
+    usage: `${value}Mi`,
+    bytes,
+  };
+}
 export function transformPodsList(k8sResponse: any): any {
   try {
     const rawPods = k8sResponse.pods || k8sResponse || [];
@@ -43,10 +174,6 @@ export function transformPodsList(k8sResponse: any): any {
   }
 }
 
-/**
- * Transform pods for PodHealthMonitor component
- * Converts metrics to percentage values that the component expects
- */
 export function transformPodsForHealthMonitor(k8sResponse: any): any {
   try {
     const rawPods = k8sResponse.pods || k8sResponse || [];
@@ -57,24 +184,14 @@ export function transformPodsForHealthMonitor(k8sResponse: any): any {
           ? pod.status
           : (pod.status?.phase ?? "Unknown");
 
-      // Extract CPU and memory percentages from metrics
       let cpuUsage: number | undefined;
       let memoryUsage: number | undefined;
 
-      console.log("Pod metrics debug:", {
-        podName: pod.name,
-        rawMetrics: pod.metrics,
-        calculatedCPU: cpuUsage,
-        calculatedMemory: memoryUsage,
-      });
       if (pod.metrics) {
-        // If metrics has usagePercent, use it directly
         cpuUsage = pod.metrics.cpu?.usagePercent;
         memoryUsage = pod.metrics.memory?.usagePercent;
 
-        // Otherwise, calculate from cores/bytes if available
         if (cpuUsage === undefined && pod.metrics.cpu?.cores !== undefined) {
-          // Assume 2 cores total capacity (adjust based on your cluster)
           const totalCores = 12;
           cpuUsage = Math.round((pod.metrics.cpu.cores / totalCores) * 100);
         }
@@ -98,8 +215,8 @@ export function transformPodsForHealthMonitor(k8sResponse: any): any {
         age:
           pod.age || calculateAge(pod.metadata?.creationTimestamp) || "unknown",
         readiness: pod.readiness,
-        cpuUsage, // ← Flat percentage number
-        memoryUsage, // ← Flat percentage number
+        cpuUsage,
+        memoryUsage,
         lastRestart: pod.lastRestart,
       };
     });
@@ -238,43 +355,80 @@ export function transformPodDescription(k8sResponse: any): any {
   }
 }
 
+/**
+ * Enhanced metrics transformer with proper CPU/memory handling
+ * CRITICAL FIX: Now properly parses and validates metrics
+ */
 export function transformMetrics(metricsData: any): any {
   try {
-    return {
-      cpu: {
-        usage: metricsData.cpu?.usage || "0m",
-        usagePercent: metricsData.cpu?.usagePercent || 0,
-        cores: metricsData.cpu?.cores || 0,
-      },
-      memory: {
-        usage: metricsData.memory?.usage || "0Mi",
-        usagePercent: metricsData.memory?.usagePercent || 0,
-        bytes: metricsData.memory?.bytes || 0,
-      },
+    // Handle case where metrics are unavailable
+    if (!metricsData || metricsData.available === false) {
+      return {
+        available: false,
+        cpu: { usage: "0m", usagePercent: 0, cores: 0 },
+        memory: { usage: "0Mi", usagePercent: 0, bytes: 0 },
+        restartCount: 0,
+        error: metricsData?.error || "Metrics unavailable",
+      };
+    }
+
+    // Parse CPU with proper validation
+    const cpuData = metricsData.cpu || {};
+    const cpuParsed = parseCpu(cpuData.usage || cpuData.cores || 0);
+    const cpu = {
+      usage: cpuParsed.usage,
+      usagePercent: cpuData.usagePercent || 0,
+      cores: cpuParsed.cores,
+    };
+
+    // Parse memory with proper validation
+    const memoryData = metricsData.memory || {};
+    const memoryParsed = parseMemory(memoryData.usage || memoryData.bytes || 0);
+    const memory = {
+      usage: memoryParsed.usage,
+      usagePercent: memoryData.usagePercent || 0,
+      bytes: memoryParsed.bytes,
+    };
+
+    const result = {
+      available: metricsData.available !== false,
+      cpu,
+      memory,
       restartCount: metricsData.restartCount || 0,
       containers: metricsData.containers?.map((c: any) => ({
         name: c.name,
-        cpu: {
-          usage: c.cpu?.usage || "0m",
-          cores: c.cpu?.cores || 0,
-        },
-        memory: {
-          usage: c.memory?.usage || "0Mi",
-          bytes: c.memory?.bytes || 0,
-        },
+        cpu: parseCpu(c.cpu?.usage || c.cpu?.cores || 0),
+        memory: parseMemory(c.memory?.usage || c.memory?.bytes || 0),
       })),
     };
+
+    logger.debug("Transformed metrics", {
+      cpuUsage: cpu.usage,
+      cpuCores: cpu.cores,
+      cpuPercent: cpu.usagePercent,
+      memoryUsage: memory.usage,
+      memoryBytes: memory.bytes,
+      memoryPercent: memory.usagePercent,
+    });
+
+    return result;
   } catch (error) {
     logger.error("Failed to transform metrics", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return null;
+
+    return {
+      available: false,
+      cpu: { usage: "0m", usagePercent: 0, cores: 0 },
+      memory: { usage: "0Mi", usagePercent: 0, bytes: 0 },
+      restartCount: 0,
+      error: "Failed to parse metrics",
+    };
   }
 }
 
 export function transformResourceUsage(k8sResponse: any): any {
   try {
-    // If already transformed — pass through
     if (
       k8sResponse?.resources &&
       k8sResponse.resources[0]?.current !== undefined
@@ -398,8 +552,7 @@ function calculateAge(creationTimestamp?: string): string {
 }
 
 /**
- * Main transformer - routes to correct transformer based on tool
- * RENAMED: transformMcpResponse → transformK8sResponse
+ * Main transformer with pod metrics special handling
  */
 export function transformK8sResponse(
   tool: string,
@@ -414,12 +567,6 @@ export function transformK8sResponse(
       return transformPodsForHealthMonitor(k8sResponse);
 
     case "get_logs":
-      return transformPodLogs(
-        k8sResponse,
-        args?.name || args?.pod_name,
-        args?.namespace,
-      );
-
     case "get_pod_logs":
       return transformPodLogs(
         k8sResponse,
@@ -434,7 +581,13 @@ export function transformK8sResponse(
       return transformPodDescription(k8sResponse);
 
     case "get_pod_metrics":
-      return transformMetrics(k8sResponse);
+      // Metrics are already in the correct format from tool-runner
+      // Just ensure consistency
+      return {
+        ...k8sResponse,
+        podName: k8sResponse.podName || args?.name,
+        namespace: k8sResponse.namespace || args?.namespace || "default",
+      };
 
     case "get_resource_usage":
       return transformResourceUsage(k8sResponse);
@@ -494,5 +647,4 @@ export function transformPodLogsWithFixes(
   }
 }
 
-// Maintain backward compatibility
 export const transformMcpResponse = transformK8sResponse;

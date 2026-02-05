@@ -105,6 +105,20 @@ const logsViewerSchema = z.object({
   highlightErrors: z.boolean().optional(),
   explanation: z.string().optional(),
   autoExplained: z.boolean().optional(),
+  fixSuggestions: z
+    .array(
+      z.object({
+        title: z.string(),
+        category: z.string(),
+        severity: z.enum(["critical", "high", "medium", "low"]),
+        description: z.string(),
+        steps: z.array(z.string()),
+        commands: z.array(z.string()).optional(),
+        documentation: z.string().optional(),
+      }),
+    )
+    .optional(),
+  hasErrors: z.boolean().optional(),
 });
 
 const metricsPanelSchema = z.object({

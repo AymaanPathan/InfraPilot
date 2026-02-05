@@ -62,7 +62,7 @@ class LogStore {
     }
 
     // Intercept console methods
-    this.interceptConsole();
+    // this.interceptConsole();
   }
 
   static getInstance(): LogStore {
@@ -78,28 +78,39 @@ class LogStore {
     const originalConsole = { ...console };
 
     console.log = (...args) => {
-      this.addLog("info", "console", this.formatArgs(args));
+      // Defer the log addition to avoid setState during render
+      queueMicrotask(() => {
+        this.addLog("info", "console", this.formatArgs(args));
+      });
       originalConsole.log(...args);
     };
 
     console.error = (...args) => {
-      this.addLog("error", "console", this.formatArgs(args));
-      originalConsole.error(...args);
+      queueMicrotask(() => {
+        this.addLog("error", "console", this.formatArgs(args));
+      });
+      originalConsole?.error(...args);
     };
 
     console.warn = (...args) => {
-      this.addLog("warn", "console", this.formatArgs(args));
-      originalConsole.warn(...args);
+      queueMicrotask(() => {
+        this.addLog("warn", "console", this.formatArgs(args));
+      });
+      originalConsole?.warn(...args);
     };
 
     console.info = (...args) => {
-      this.addLog("info", "console", this.formatArgs(args));
-      originalConsole.info(...args);
+      queueMicrotask(() => {
+        this.addLog("info", "console", this.formatArgs(args));
+      });
+      originalConsole?.info(...args);
     };
 
     console.debug = (...args) => {
-      this.addLog("debug", "console", this.formatArgs(args));
-      originalConsole.debug(...args);
+      queueMicrotask(() => {
+        this.addLog("debug", "console", this.formatArgs(args));
+      });
+      originalConsole?.debug(...args);
     };
   }
 
@@ -135,10 +146,10 @@ class LogStore {
       emoji,
     };
 
-    this.logs.push(log);
+    this?.logs?.push(log);
 
     // Keep only max logs
-    if (this.logs.length > this.maxLogs) {
+    if (this?.logs?.length > this?.maxLogs) {
       this.logs = this.logs.slice(-this.maxLogs);
     }
 

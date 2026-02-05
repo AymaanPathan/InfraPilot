@@ -3,12 +3,12 @@ import { runTool } from "./tool-runner";
 import type { MultiStepPlan, PlanStep } from "./multi_step_planner";
 
 /**
- * Multi-Step Executor - FIXED LOGS COMPARISON
+ * Multi-Step Executor - TYPE-SAFE VERSION
  *
- * Key fixes:
- * 1. Properly extracts logs data for side-by-side comparison
- * 2. Converts log arrays to strings for MultiPanelView
- * 3. Better logging for debugging
+ * Fixed to use correct merge strategies:
+ * - "compare" for metrics comparisons
+ * - "side_by_side" for log comparisons
+ * - Matches planner output exactly
  */
 
 export interface StepResult {
@@ -40,8 +40,10 @@ export async function executeMultiStepPlan(
     finalComponent: plan.final_component,
   });
 
+  // FIXED: Check for correct strategy names
   const isComparison =
     plan.merge_strategy === "compare" || plan.merge_strategy === "side_by_side";
+
   if (isComparison) {
     console.log("\n🔵 COMPARISON MODE - Using PARALLEL execution!");
     console.log("   This will be much faster than sequential");
@@ -460,7 +462,7 @@ async function mergeResults(
 
     case "compare":
       // Return comparison structure with proper error handling
-      console.log("   🔵 Using COMPARISON merge");
+      console.log("   🔵 Using COMPARE merge (metrics comparison)");
 
       const comparisonItems = results.map((r, index) => {
         const step = steps[index];
@@ -517,7 +519,7 @@ async function mergeResults(
 
     case "side_by_side":
       // Return panels structure for MultiPanelView
-      console.log("   🔵 Using SIDE_BY_SIDE merge (FIXED for logs)");
+      console.log("   🔵 Using SIDE_BY_SIDE merge (log comparison)");
 
       const panels = results.map((r, index) => {
         const step = steps[index];
@@ -582,9 +584,14 @@ async function mergeResults(
         },
       };
 
+    case "single":
+      // Single result - just return the data
+      console.log("   Using single merge");
+      return results[0]?.data || null;
+
     default:
       // Default: return all results
-      console.log("   Using default merge");
+      console.log("   Using default merge (array of results)");
       return results.map((r) => r.data);
   }
 }
