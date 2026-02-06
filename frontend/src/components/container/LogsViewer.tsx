@@ -12,6 +12,14 @@ import {
   AlertTriangle,
   X,
   ChevronDown,
+  Sparkles,
+  Loader2,
+  Lightbulb,
+  ExternalLink,
+  Code,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 interface LogsViewerProps {
@@ -24,6 +32,25 @@ interface LogsViewerProps {
   highlightErrors?: boolean;
   onRefresh?: () => void;
   onContainerChange?: (container: string) => void;
+}
+
+interface FixSuggestion {
+  title: string;
+  category: string;
+  severity: "critical" | "high" | "medium" | "low";
+  description: string;
+  steps: string[];
+  commands?: string[];
+  documentation?: string;
+}
+
+interface LogAnalysisResult {
+  hasErrors: boolean;
+  errorCount: number;
+  warningCount: number;
+  suggestions: FixSuggestion[];
+  summary: string;
+  criticalIssues: string[];
 }
 
 export function LogsViewer({
@@ -40,6 +67,11 @@ export function LogsViewer({
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [copied, setCopied] = useState(false);
+  const [showFixSuggestions, setShowFixSuggestions] = useState(false);
+  const [loadingFixes, setLoadingFixes] = useState(false);
+  const [fixAnalysis, setFixAnalysis] = useState<LogAnalysisResult | null>(
+    null,
+  );
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -99,12 +131,52 @@ export function LogsViewer({
     URL.revokeObjectURL(url);
   };
 
+  const handleGenerateFixSuggestions = async () => {
+    setLoadingFixes(true);
+    setShowFixSuggestions(true);
+
+    try {
+      const response = await fetch("http://localhost:8000/api/ai/log-fixes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          logs: logLines.join("\n"),
+          podName,
+          namespace,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate fix suggestions");
+      }
+
+      const data = await response.json();
+      setFixAnalysis(data);
+    } catch (error) {
+      console.error("Failed to generate fix suggestions:", error);
+      setFixAnalysis({
+        hasErrors: false,
+        errorCount: 0,
+        warningCount: 0,
+        suggestions: [],
+        summary: "Failed to generate fix suggestions. Please try again.",
+        criticalIssues: [],
+      });
+    } finally {
+      setLoadingFixes(false);
+    }
+  };
+
   const errorCount = logLines.filter(
     (line) => getLogLevel(line) === "error",
   ).length;
   const warnCount = logLines.filter(
     (line) => getLogLevel(line) === "warn",
   ).length;
+
+  const hasErrors = errorCount > 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -119,6 +191,27 @@ export function LogsViewer({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* AI Fix Button */}
+          {hasErrors && (
+            <button
+              onClick={handleGenerateFixSuggestions}
+              disabled={loadingFixes}
+              className="group relative px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg transition-all duration-200 flex items-center gap-2 font-medium text-sm shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {/* Glow effect */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg blur opacity-30 group-hover:opacity-50 transition-opacity duration-200" />
+
+              <div className="relative flex items-center gap-2">
+                {loadingFixes ? (
+                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
+                ) : (
+                  <Sparkles className="w-4 h-4" strokeWidth={2} />
+                )}
+                <span>AI Fix</span>
+              </div>
+            </button>
+          )}
+
           {/* Container Selector */}
           {containers.length > 0 && (
             <select
@@ -166,6 +259,73 @@ export function LogsViewer({
           )}
         </div>
       </div>
+
+      {/* Fix Suggestions Panel */}
+      {showFixSuggestions && (
+        <div className="border-b border-zinc-800/50 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <Lightbulb
+                    className="w-5 h-5 text-purple-400"
+                    strokeWidth={2}
+                  />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">
+                    AI Fix Suggestions
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    {loadingFixes
+                      ? "Analyzing error patterns..."
+                      : fixAnalysis?.summary}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFixSuggestions(false)}
+                className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-zinc-400" strokeWidth={2} />
+              </button>
+            </div>
+
+            {loadingFixes ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2
+                    className="w-8 h-8 text-purple-400 animate-spin"
+                    strokeWidth={2}
+                  />
+                  <p className="text-sm text-zinc-400">
+                    Analyzing logs with AI...
+                  </p>
+                </div>
+              </div>
+            ) : fixAnalysis && fixAnalysis.suggestions.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                {fixAnalysis.suggestions.map((suggestion, index) => (
+                  <FixSuggestionCard
+                    key={index}
+                    suggestion={suggestion}
+                    index={index}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-zinc-500">
+                <CheckCircle2 className="w-12 h-12 mb-3 opacity-50" />
+                <p className="text-sm">
+                  {fixAnalysis?.hasErrors
+                    ? "No specific fix suggestions available"
+                    : "No errors detected in logs"}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 p-4 border-b border-zinc-800/50 bg-zinc-900/20">
@@ -281,6 +441,167 @@ export function LogsViewer({
       <div className="px-4 py-2 border-t border-zinc-800/50 bg-zinc-900/20 text-xs text-zinc-500 font-light">
         Showing {filteredLogs.length} of {logLines.length} lines
       </div>
+    </div>
+  );
+}
+
+function FixSuggestionCard({
+  suggestion,
+  index,
+}: {
+  suggestion: FixSuggestion;
+  index: number;
+}) {
+  const [expanded, setExpanded] = useState(index === 0);
+  const [copiedCommand, setCopiedCommand] = useState<number | null>(null);
+
+  const severityConfig = {
+    critical: {
+      bg: "bg-red-500/10",
+      border: "border-red-500/30",
+      text: "text-red-400",
+      icon: <XCircle className="w-4 h-4" strokeWidth={2} />,
+    },
+    high: {
+      bg: "bg-orange-500/10",
+      border: "border-orange-500/30",
+      text: "text-orange-400",
+      icon: <AlertCircle className="w-4 h-4" strokeWidth={2} />,
+    },
+    medium: {
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/30",
+      text: "text-amber-400",
+      icon: <AlertTriangle className="w-4 h-4" strokeWidth={2} />,
+    },
+    low: {
+      bg: "bg-blue-500/10",
+      border: "border-blue-500/30",
+      text: "text-blue-400",
+      icon: <AlertCircle className="w-4 h-4" strokeWidth={2} />,
+    },
+  };
+
+  const config = severityConfig[suggestion.severity];
+
+  const handleCopyCommand = (command: string, cmdIndex: number) => {
+    navigator.clipboard.writeText(command);
+    setCopiedCommand(cmdIndex);
+    setTimeout(() => setCopiedCommand(null), 2000);
+  };
+
+  return (
+    <div
+      className={`border ${config.border} ${config.bg} rounded-xl overflow-hidden transition-all duration-200`}
+    >
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={config.text}>{config.icon}</div>
+          <div className="text-left">
+            <h4 className="text-sm font-semibold text-white">
+              {suggestion.title}
+            </h4>
+            <p className="text-xs text-zinc-500 capitalize">
+              {suggestion.category.replace(/_/g, " ")} •{" "}
+              {suggestion.severity.toUpperCase()}
+            </p>
+          </div>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+            expanded ? "rotate-180" : ""
+          }`}
+          strokeWidth={2}
+        />
+      </button>
+
+      {/* Content */}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4">
+          {/* Description */}
+          <p className="text-sm text-zinc-300 leading-relaxed">
+            {suggestion.description}
+          </p>
+
+          {/* Steps */}
+          {suggestion.steps.length > 0 && (
+            <div>
+              <h5 className="text-xs font-semibold text-zinc-400 mb-2 flex items-center gap-2">
+                <Lightbulb className="w-3 h-3" strokeWidth={2} />
+                RESOLUTION STEPS
+              </h5>
+              <ol className="space-y-2">
+                {suggestion.steps.map((step, idx) => (
+                  <li key={idx} className="flex gap-3">
+                    <span className="shrink-0 w-5 h-5 rounded-full bg-zinc-800 text-zinc-400 text-xs flex items-center justify-center font-medium">
+                      {idx + 1}
+                    </span>
+                    <span className="text-sm text-zinc-300 leading-relaxed">
+                      {step}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Commands */}
+          {suggestion.commands && suggestion.commands.length > 0 && (
+            <div>
+              <h5 className="text-xs font-semibold text-zinc-400 mb-2 flex items-center gap-2">
+                <Code className="w-3 h-3" strokeWidth={2} />
+                COMMANDS
+              </h5>
+              <div className="space-y-2">
+                {suggestion.commands.map((command, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group bg-black border border-zinc-800 rounded-lg p-3"
+                  >
+                    <code className="text-xs text-green-400 font-mono break-all">
+                      {command}
+                    </code>
+                    <button
+                      onClick={() => handleCopyCommand(command, idx)}
+                      className="absolute top-2 right-2 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Copy command"
+                    >
+                      {copiedCommand === idx ? (
+                        <CheckCircle
+                          className="w-3 h-3 text-green-400"
+                          strokeWidth={2}
+                        />
+                      ) : (
+                        <Copy
+                          className="w-3 h-3 text-zinc-400"
+                          strokeWidth={2}
+                        />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Documentation Link */}
+          {suggestion.documentation && (
+            <a
+              href={suggestion.documentation}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" strokeWidth={2} />
+              <span>View documentation</span>
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }

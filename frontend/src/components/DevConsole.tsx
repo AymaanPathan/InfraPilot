@@ -16,6 +16,9 @@ import {
   EyeOff,
   Maximize2,
   Minimize2,
+  GripVertical,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 export type LogLevel = "debug" | "info" | "warn" | "error" | "success";
@@ -60,9 +63,6 @@ class LogStore {
         }
       }
     }
-
-    // Intercept console methods
-    // this.interceptConsole();
   }
 
   static getInstance(): LogStore {
@@ -70,63 +70,6 @@ class LogStore {
       LogStore.instance = new LogStore();
     }
     return LogStore.instance;
-  }
-
-  private interceptConsole() {
-    if (typeof window === "undefined") return;
-
-    const originalConsole = { ...console };
-
-    console.log = (...args) => {
-      // Defer the log addition to avoid setState during render
-      queueMicrotask(() => {
-        this.addLog("info", "console", this.formatArgs(args));
-      });
-      originalConsole.log(...args);
-    };
-
-    console.error = (...args) => {
-      queueMicrotask(() => {
-        this.addLog("error", "console", this.formatArgs(args));
-      });
-      originalConsole?.error(...args);
-    };
-
-    console.warn = (...args) => {
-      queueMicrotask(() => {
-        this.addLog("warn", "console", this.formatArgs(args));
-      });
-      originalConsole?.warn(...args);
-    };
-
-    console.info = (...args) => {
-      queueMicrotask(() => {
-        this.addLog("info", "console", this.formatArgs(args));
-      });
-      originalConsole?.info(...args);
-    };
-
-    console.debug = (...args) => {
-      queueMicrotask(() => {
-        this.addLog("debug", "console", this.formatArgs(args));
-      });
-      originalConsole?.debug(...args);
-    };
-  }
-
-  private formatArgs(args: any[]): string {
-    return args
-      .map((arg) => {
-        if (typeof arg === "object") {
-          try {
-            return JSON.stringify(arg, null, 2);
-          } catch {
-            return String(arg);
-          }
-        }
-        return String(arg);
-      })
-      .join(" ");
   }
 
   addLog(
@@ -255,8 +198,13 @@ export function DevConsole({
   const [levelFilter, setLevelFilter] = useState<LogLevel | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [autoScroll, setAutoScroll] = useState(true);
+  const [height, setHeight] = useState(400);
+  const [isResizing, setIsResizing] = useState(false);
+
   const logsEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const resizeStartY = useRef<number>(0);
+  const resizeStartHeight = useRef<number>(0);
 
   // Subscribe to log store
   useEffect(() => {
@@ -272,17 +220,59 @@ export function DevConsole({
 
   // Auto scroll
   useEffect(() => {
-    if (autoScroll && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (autoScroll && logsEndRef.current && isExpanded) {
+      requestAnimationFrame(() => {
+        logsEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      });
     }
-  }, [logs, autoScroll]);
+  }, [logs, autoScroll, isExpanded]);
+
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartY.current = e.clientY;
+    resizeStartHeight.current = height;
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = resizeStartY.current - e.clientY;
+      const newHeight = Math.max(
+        200,
+        Math.min(window.innerHeight - 100, resizeStartHeight.current + delta),
+      );
+      setHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Filter logs
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
       !searchTerm ||
       log.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.category.toLowerCase().includes(searchTerm.toLowerCase());
+      log.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.data &&
+        JSON.stringify(log.data)
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()));
 
     const matchesLevel = levelFilter === "all" || log.level === levelFilter;
 
@@ -333,47 +323,58 @@ export function DevConsole({
     return (
       <button
         onClick={() => setIsExpanded(true)}
-        className="fixed bottom-4 right-4 bg-neutral-900 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-neutral-800 flex items-center gap-2 z-50"
+        className="fixed bottom-6 right-6 bg-black text-white px-5 py-3 rounded-xl shadow-2xl hover:bg-zinc-900 flex items-center gap-3 z-50 border border-zinc-800 transition-all duration-300 hover:scale-105"
       >
-        <Terminal className="w-4 h-4 text-white" />
-        <span className="text-sm font-medium text-white">Dev Console</span>
+        <Terminal className="w-5 h-5" />
+        <span className="text-sm font-medium">Dev Console</span>
       </button>
     );
   }
 
-  const positionClasses = {
-    bottom: "bottom-0 left-0 right-0",
-    right: "right-0 top-0 bottom-0 w-96",
-    floating: "bottom-4 right-4 w-[600px] rounded-lg shadow-2xl",
-  };
-
-  const heightClass = isMaximized
-    ? "h-screen"
-    : position === "bottom"
-      ? "h-96"
-      : position === "floating"
-        ? "h-[600px]"
-        : "h-full";
+  const containerHeight = isMaximized ? "100vh" : `${height}px`;
 
   return (
     <div
       ref={containerRef}
-      className={`fixed ${positionClasses[position]} ${heightClass} bg-neutral-950 border-t border-neutral-800 flex flex-col z-50 font-mono text-xs`}
+      className={`fixed bottom-0 left-0 right-0 bg-black border-t-2 border-white flex flex-col z-50 font-mono text-sm shadow-2xl ${isResizing ? "select-none" : ""}`}
+      style={{ height: containerHeight }}
     >
+      {/* Resize Handle */}
+      {!isMaximized && (
+        <div
+          onMouseDown={handleResizeStart}
+          className={`absolute top-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-white/10 transition-colors group ${isResizing ? "bg-white/20" : ""}`}
+        >
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-1">
+            <div
+              className={`w-8 h-0.5 bg-zinc-700 group-hover:bg-white transition-colors ${isResizing ? "bg-white" : ""}`}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="bg-neutral-900 border-b border-neutral-800 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Terminal className="w-4 h-4 text-white" />
-          <span className="text-white font-semibold">Dev Console</span>
-          <span className="text-white">
-            {filteredLogs.length} / {logs.length} logs
+      <div className="bg-black border-b border-zinc-800 px-6 py-3 flex items-center justify-between shrink-0 mt-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Terminal className="w-5 h-5 text-white" />
+            <span className="text-white font-bold text-base">Dev Console</span>
+          </div>
+          <div className="h-4 w-px bg-zinc-800" />
+          <span className="text-zinc-400 text-sm">
+            {filteredLogs.length} {filteredLogs.length === 1 ? "log" : "logs"}
+            {filteredLogs.length !== logs.length && ` of ${logs.length}`}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setAutoScroll(!autoScroll)}
-            className={`p-1 rounded ${autoScroll ? "bg-neutral-700 text-white" : "text-neutral-500 hover:bg-neutral-800"}`}
+            className={`p-2 rounded-lg transition-all duration-200 ${
+              autoScroll
+                ? "bg-white text-black"
+                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            }`}
             title={autoScroll ? "Auto-scroll ON" : "Auto-scroll OFF"}
           >
             {autoScroll ? (
@@ -385,8 +386,8 @@ export function DevConsole({
 
           <button
             onClick={() => setIsMaximized(!isMaximized)}
-            className="p-1 text-neutral-500 hover:bg-neutral-800 rounded"
-            title={isMaximized ? "Minimize" : "Maximize"}
+            className="p-2 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-200"
+            title={isMaximized ? "Restore" : "Maximize"}
           >
             {isMaximized ? (
               <Minimize2 className="w-4 h-4" />
@@ -397,7 +398,7 @@ export function DevConsole({
 
           <button
             onClick={handleDownload}
-            className="p-1 text-neutral-500 hover:bg-neutral-800 rounded"
+            className="p-2 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-200"
             title="Download logs"
           >
             <Download className="w-4 h-4" />
@@ -405,16 +406,18 @@ export function DevConsole({
 
           <button
             onClick={handleClear}
-            className="p-1 text-neutral-500 hover:bg-neutral-800 rounded"
-            title="Clear logs"
+            className="p-2 bg-zinc-900 text-zinc-400 hover:bg-red-900 hover:text-red-400 rounded-lg transition-all duration-200"
+            title="Clear all logs"
           >
             <Trash2 className="w-4 h-4" />
           </button>
 
+          <div className="h-4 w-px bg-zinc-800 mx-1" />
+
           <button
             onClick={() => setIsExpanded(false)}
-            className="p-1 text-neutral-500 hover:bg-neutral-800 rounded"
-            title="Close"
+            className="p-2 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-200"
+            title="Close console"
           >
             <XCircle className="w-4 h-4" />
           </button>
@@ -422,43 +425,45 @@ export function DevConsole({
       </div>
 
       {/* Filters */}
-      <div className="bg-neutral-900 border-b border-neutral-800 px-4 py-2 flex items-center gap-2">
-        <Search className="w-4 h-4 text-neutral-500" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search logs..."
-          className="flex-1 bg-neutral-800 text-neutral-200 px-2 py-1 rounded border border-neutral-700 focus:outline-none focus:border-neutral-600"
-        />
+      <div className="bg-black border-b border-zinc-800 px-6 py-3 flex items-center gap-3 shrink-0">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search logs, categories, or data..."
+            className="w-full bg-zinc-900 text-white pl-10 pr-4 py-2 rounded-lg border border-zinc-800 focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all duration-200"
+          />
+        </div>
 
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value as LogLevel | "all")}
-          className="bg-neutral-800 text-neutral-200 px-2 py-1 rounded border border-neutral-700 focus:outline-none focus:border-neutral-600"
+          className="bg-zinc-900 text-white px-4 py-2 rounded-lg border border-zinc-800 focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all duration-200 min-w-[140px]"
         >
-          <option value="all">All Levels</option>
+          <option value="all">All Levels ({logs.length})</option>
           <option value="debug">
-            Debug {levelCounts.debug ? `(${levelCounts.debug})` : ""}
+            🔵 Debug {levelCounts.debug ? `(${levelCounts.debug})` : ""}
           </option>
           <option value="info">
-            Info {levelCounts.info ? `(${levelCounts.info})` : ""}
+            ℹ️ Info {levelCounts.info ? `(${levelCounts.info})` : ""}
           </option>
           <option value="success">
-            Success {levelCounts.success ? `(${levelCounts.success})` : ""}
+            ✅ Success {levelCounts.success ? `(${levelCounts.success})` : ""}
           </option>
           <option value="warn">
-            Warn {levelCounts.warn ? `(${levelCounts.warn})` : ""}
+            ⚠️ Warn {levelCounts.warn ? `(${levelCounts.warn})` : ""}
           </option>
           <option value="error">
-            Error {levelCounts.error ? `(${levelCounts.error})` : ""}
+            ❌ Error {levelCounts.error ? `(${levelCounts.error})` : ""}
           </option>
         </select>
 
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="bg-neutral-800 text-neutral-200 px-2 py-1 rounded border border-neutral-700 focus:outline-none focus:border-neutral-600"
+          className="bg-zinc-900 text-white px-4 py-2 rounded-lg border border-zinc-800 focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all duration-200 min-w-[160px]"
         >
           <option value="all">All Categories</option>
           {categories.map((cat) => (
@@ -470,79 +475,125 @@ export function DevConsole({
       </div>
 
       {/* Logs */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div
+        className="flex-1 overflow-y-auto p-4 space-y-2 bg-black"
+        style={{ scrollbarGutter: "stable" }}
+      >
         {filteredLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-600">
-            <Info className="w-8 h-8 mb-2 opacity-50" />
-            <p>No logs to display</p>
+          <div className="flex flex-col items-center justify-center h-full text-zinc-600">
+            <Info className="w-12 h-12 mb-3 opacity-30" />
+            <p className="text-base font-medium">No logs to display</p>
+            <p className="text-sm text-zinc-700 mt-1">
+              {searchTerm || levelFilter !== "all" || categoryFilter !== "all"
+                ? "Try adjusting your filters"
+                : "Logs will appear here as they're generated"}
+            </p>
           </div>
         ) : (
           filteredLogs.map((log) => <LogLine key={log.id} log={log} />)
         )}
-        <div ref={logsEndRef} />
+        <div ref={logsEndRef} className="h-2" />
       </div>
+
+      <style jsx global>{`
+        /* Custom scrollbar for dev console */
+        .overflow-y-auto::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .overflow-y-auto::-webkit-scrollbar-track {
+          background: black;
+        }
+
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+          background: #27272a;
+          border-radius: 4px;
+        }
+
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+          background: #3f3f46;
+        }
+      `}</style>
     </div>
   );
 }
 
 function LogLine({ log }: { log: LogEntry }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   const levelColors = {
     debug: "text-blue-400",
-    info: "text-neutral-400",
+    info: "text-zinc-300",
     warn: "text-amber-400",
     error: "text-red-400",
     success: "text-green-400",
   };
 
   const levelBg = {
-    debug: "bg-blue-950/30",
-    info: "bg-neutral-900/30",
-    warn: "bg-amber-950/30",
-    error: "bg-red-950/30",
-    success: "bg-green-950/30",
+    debug: "bg-blue-950/20 border-blue-900/30",
+    info: "bg-zinc-900/50 border-zinc-800",
+    warn: "bg-amber-950/20 border-amber-900/30",
+    error: "bg-red-950/20 border-red-900/30",
+    success: "bg-green-950/20 border-green-900/30",
   };
 
   const levelIcons = {
-    debug: <Info className="w-3 h-3" />,
-    info: <Info className="w-3 h-3" />,
-    warn: <AlertCircle className="w-3 h-3" />,
-    error: <XCircle className="w-3 h-3" />,
-    success: <Check className="w-3 h-3" />,
+    debug: <Info className="w-4 h-4" />,
+    info: <Info className="w-4 h-4" />,
+    warn: <AlertCircle className="w-4 h-4" />,
+    error: <XCircle className="w-4 h-4" />,
+    success: <Check className="w-4 h-4" />,
   };
+
+  const hasData = log.data !== undefined && log.data !== null;
 
   return (
     <div
-      className={`rounded px-2 py-1 hover:bg-neutral-900 ${levelBg[log.level]}`}
+      className={`rounded-lg border ${levelBg[log.level]} overflow-hidden transition-all duration-200 hover:border-zinc-700`}
     >
-      <div
-        className="flex items-start gap-2 cursor-pointer"
-        onClick={() => log.data && setIsExpanded(!isExpanded)}
-      >
-        <span className="text-neutral-600 text-[10px] mt-0.5">
-          {log.timestamp.toLocaleTimeString()}
+      {/* Main log line */}
+      <div className="flex items-start gap-3 px-4 py-3">
+        <span className="text-zinc-600 text-xs font-mono mt-0.5 shrink-0 min-w-[80px]">
+          {log.timestamp.toLocaleTimeString("en-US", {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            fractionalSecondDigits: 3,
+          })}
         </span>
 
-        <span className={`${levelColors[log.level]} mt-0.5`}>
+        <span className={`${levelColors[log.level]} mt-0.5 shrink-0`}>
           {levelIcons[log.level]}
         </span>
 
-        {log.emoji && <span className="text-xs">{log.emoji}</span>}
+        {log.emoji && <span className="text-base shrink-0">{log.emoji}</span>}
 
-        <span className="text-neutral-500 text-[10px] px-1.5 py-0.5 bg-neutral-800 rounded">
+        <span className="text-xs px-2.5 py-1 bg-black border border-zinc-800 rounded-md text-zinc-400 font-medium shrink-0">
           {log.category}
         </span>
 
-        <span className={`flex-1 ${levelColors[log.level]}`}>
+        <span
+          className={`flex-1 ${levelColors[log.level]} font-medium leading-relaxed`}
+        >
           {log.message}
         </span>
       </div>
 
-      {log.data && isExpanded && (
-        <pre className="mt-1 ml-6 text-neutral-500 text-[10px] bg-neutral-900 p-2 rounded overflow-x-auto">
-          {JSON.stringify(log.data, null, 2)}
-        </pre>
+      {/* Data section - always expanded */}
+      {hasData && (
+        <div className="px-4 pb-3">
+          <div className="ml-[100px] pl-4 border-l-2 border-zinc-800">
+            <div className="bg-black rounded-lg border border-zinc-800 overflow-hidden">
+              <div className="px-3 py-2 bg-zinc-900/50 border-b border-zinc-800">
+                <span className="text-xs text-zinc-500 font-medium">Data</span>
+              </div>
+              <pre className="text-xs text-zinc-400 p-3 overflow-x-auto leading-relaxed">
+                {typeof log.data === "string"
+                  ? log.data
+                  : JSON.stringify(log.data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
