@@ -244,7 +244,3 @@ Made with ❤️ for better Kubernetes observability
 </div>
 
 ---
-
-## 🔍 Tags
-
-`kubernetes` `generative-ui` `ai` `dashboard` `observability` `tambo` `groq` `nextjs` `typescript` `tailwindcss` `hackathon` `wemakedevs`
