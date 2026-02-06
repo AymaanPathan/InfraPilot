@@ -94,11 +94,11 @@ export function LogsViewer({
   const getLogLevelColor = (level: string): string => {
     switch (level) {
       case "error":
-        return "text-red-400";
+        return "text-white";
       case "warn":
-        return "text-amber-400";
+        return "text-zinc-300";
       case "info":
-        return "text-blue-400";
+        return "text-zinc-400";
       case "debug":
         return "text-zinc-500";
       default:
@@ -196,19 +196,14 @@ export function LogsViewer({
             <button
               onClick={handleGenerateFixSuggestions}
               disabled={loadingFixes}
-              className="group relative px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg transition-all duration-200 flex items-center gap-2 font-medium text-sm shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-white text-black hover:bg-zinc-200 rounded-lg transition-all duration-200 flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
             >
-              {/* Glow effect */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg blur opacity-30 group-hover:opacity-50 transition-opacity duration-200" />
-
-              <div className="relative flex items-center gap-2">
-                {loadingFixes ? (
-                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
-                ) : (
-                  <Sparkles className="w-4 h-4" strokeWidth={2} />
-                )}
-                <span>AI Fix</span>
-              </div>
+              {loadingFixes ? (
+                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
+              ) : (
+                <Sparkles className="w-4 h-4" strokeWidth={2} />
+              )}
+              <span>AI Fix</span>
             </button>
           )}
 
@@ -262,15 +257,12 @@ export function LogsViewer({
 
       {/* Fix Suggestions Panel */}
       {showFixSuggestions && (
-        <div className="border-b border-zinc-800/50 bg-gradient-to-br from-zinc-900/80 to-zinc-800/60">
+        <div className="border-b border-zinc-800/50 bg-black">
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg">
-                  <Lightbulb
-                    className="w-5 h-5 text-purple-400"
-                    strokeWidth={2}
-                  />
+                <div className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <Lightbulb className="w-5 h-5 text-white" strokeWidth={2} />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">
@@ -295,7 +287,7 @@ export function LogsViewer({
               <div className="flex items-center justify-center py-8">
                 <div className="flex flex-col items-center gap-3">
                   <Loader2
-                    className="w-8 h-8 text-purple-400 animate-spin"
+                    className="w-8 h-8 text-white animate-spin"
                     strokeWidth={2}
                   />
                   <p className="text-sm text-zinc-400">
@@ -375,23 +367,20 @@ export function LogsViewer({
         {highlightErrors && (errorCount > 0 || warnCount > 0) && (
           <div className="flex items-center gap-3 text-xs">
             {errorCount > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <AlertTriangle
-                  className="w-3 h-3 text-red-400"
-                  strokeWidth={2}
-                />
-                <span className="text-red-400 font-medium">
+              <div className="flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg">
+                <AlertTriangle className="w-3 h-3 text-white" strokeWidth={2} />
+                <span className="text-white font-medium">
                   {errorCount} errors
                 </span>
               </div>
             )}
             {warnCount > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <div className="flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg">
                 <AlertTriangle
-                  className="w-3 h-3 text-amber-400"
+                  className="w-3 h-3 text-zinc-400"
                   strokeWidth={2}
                 />
-                <span className="text-amber-400 font-medium">
+                <span className="text-zinc-400 font-medium">
                   {warnCount} warnings
                 </span>
               </div>
@@ -414,8 +403,8 @@ export function LogsViewer({
               <div
                 key={index}
                 className={`py-0.5 hover:bg-zinc-900/30 ${
-                  level === "error" ? "bg-red-500/5" : ""
-                } ${level === "warn" ? "bg-amber-500/5" : ""}`}
+                  level === "error" ? "bg-zinc-900/20" : ""
+                } ${level === "warn" ? "bg-zinc-900/10" : ""}`}
               >
                 <span className="text-zinc-600 select-none mr-3">
                   {String(index + 1).padStart(4, " ")}
@@ -457,27 +446,27 @@ function FixSuggestionCard({
 
   const severityConfig = {
     critical: {
-      bg: "bg-red-500/10",
-      border: "border-red-500/30",
-      text: "text-red-400",
+      bg: "bg-zinc-900",
+      border: "border-zinc-700",
+      text: "text-white",
       icon: <XCircle className="w-4 h-4" strokeWidth={2} />,
     },
     high: {
-      bg: "bg-orange-500/10",
-      border: "border-orange-500/30",
-      text: "text-orange-400",
+      bg: "bg-zinc-900",
+      border: "border-zinc-700",
+      text: "text-white",
       icon: <AlertCircle className="w-4 h-4" strokeWidth={2} />,
     },
     medium: {
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/30",
-      text: "text-amber-400",
+      bg: "bg-zinc-900",
+      border: "border-zinc-800",
+      text: "text-zinc-300",
       icon: <AlertTriangle className="w-4 h-4" strokeWidth={2} />,
     },
     low: {
-      bg: "bg-blue-500/10",
-      border: "border-blue-500/30",
-      text: "text-blue-400",
+      bg: "bg-zinc-900",
+      border: "border-zinc-800",
+      text: "text-zinc-400",
       icon: <AlertCircle className="w-4 h-4" strokeWidth={2} />,
     },
   };
@@ -562,7 +551,7 @@ function FixSuggestionCard({
                     key={idx}
                     className="relative group bg-black border border-zinc-800 rounded-lg p-3"
                   >
-                    <code className="text-xs text-green-400 font-mono break-all">
+                    <code className="text-xs text-white font-mono break-all">
                       {command}
                     </code>
                     <button
@@ -572,7 +561,7 @@ function FixSuggestionCard({
                     >
                       {copiedCommand === idx ? (
                         <CheckCircle
-                          className="w-3 h-3 text-green-400"
+                          className="w-3 h-3 text-white"
                           strokeWidth={2}
                         />
                       ) : (
@@ -594,7 +583,7 @@ function FixSuggestionCard({
               href={suggestion.documentation}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              className="inline-flex items-center gap-2 text-xs text-white hover:text-zinc-300 transition-colors"
             >
               <ExternalLink className="w-3 h-3" strokeWidth={2} />
               <span>View documentation</span>
