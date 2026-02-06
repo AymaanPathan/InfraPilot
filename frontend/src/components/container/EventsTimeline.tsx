@@ -33,24 +33,24 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
     switch (type) {
       case "Warning":
         return {
-          bg: "bg-amber-50",
-          border: "border-amber-200",
-          text: "text-amber-700",
-          icon: "text-amber-700",
+          bg: "bg-amber-500/10",
+          border: "border-amber-500/20",
+          text: "text-amber-400",
+          icon: "text-amber-400",
         };
       case "Error":
         return {
-          bg: "bg-red-50",
-          border: "border-red-200",
-          text: "text-red-700",
-          icon: "text-red-700",
+          bg: "bg-red-500/10",
+          border: "border-red-500/20",
+          text: "text-red-400",
+          icon: "text-red-400",
         };
       default:
         return {
-          bg: "bg-neutral-50",
-          border: "border-neutral-200",
-          text: "text-neutral-700",
-          icon: "text-neutral-700",
+          bg: "bg-zinc-800/50",
+          border: "border-zinc-800/50",
+          text: "text-zinc-300",
+          icon: "text-zinc-300",
         };
     }
   };
@@ -84,8 +84,8 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
     <div className="space-y-4">
       {podName && (
         <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-neutral-700" />
-          <h3 className="text-lg font-semibold text-neutral-900">
+          <Clock className="w-5 h-5 text-zinc-300" />
+          <h3 className="text-lg font-medium text-white">
             Events for {podName}
           </h3>
         </div>
@@ -111,7 +111,7 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
                 </div>
 
                 <div
-                  className={`${colors.bg} ${colors.border} border rounded-xl p-4 hover:shadow-sm transition-all duration-200`}
+                  className={`${colors.bg} ${colors.border} border rounded-xl p-4 hover:border-zinc-700/50 transition-all duration-200`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -119,31 +119,29 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
                         {getEventIcon(event.type, event.reason)}
                       </div>
                       {event.reason && (
-                        <span
-                          className={`font-semibold text-sm ${colors.text}`}
-                        >
+                        <span className={`font-medium text-sm ${colors.text}`}>
                           {event.reason}
                         </span>
                       )}
                       {event.count && event.count > 1 && (
-                        <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-xs rounded-full border border-neutral-200">
+                        <span className="px-2 py-0.5 bg-zinc-800/50 text-zinc-400 font-light text-xs rounded-full border border-zinc-800/50">
                           ×{event.count}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 font-light">
                       <Clock className="w-3 h-3" />
                       {formatTimestamp(timestamp)}
                     </div>
                   </div>
 
-                  <p className="text-sm text-neutral-700 leading-relaxed">
+                  <p className="text-sm text-zinc-300 leading-relaxed">
                     {event.message}
                   </p>
 
                   {event.source && (
-                    <div className="mt-2 text-xs text-neutral-500">
+                    <div className="mt-2 text-xs text-zinc-500 font-light">
                       Source: {event.source}
                     </div>
                   )}
@@ -155,14 +153,14 @@ export function EventsTimeline({ events, podName }: EventsTimelineProps) {
       </div>
 
       {events.length === 0 && (
-        <div className="text-center py-8 text-neutral-500">
+        <div className="text-center py-8 text-zinc-500 font-light">
           <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No events found</p>
         </div>
       )}
 
       {events.length > 0 && (
-        <div className="text-xs text-neutral-500 text-center mt-4">
+        <div className="text-xs text-zinc-500 font-light text-center mt-4">
           Showing {events.length} event{events.length !== 1 ? "s" : ""}
         </div>
       )}

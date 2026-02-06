@@ -12,7 +12,7 @@ export function TamboClientProvider({
   return (
     <TamboProvider
       apiKey={
-        "tambo_pzNAu22lrhgYalLeNnVRUXkeJ9btGL626yIFuJVtVx9O81oup/VvKhVy6ANzswGuhIwswvN5Jte5lBS1hWqeI5ngG7ruWmk6mg2080sMg/k="
+        "tambo_Zi7iEhSzcleFQGjJ4AZaG61t5qtVjH1Yq0p8EAGpgzVL1RA1KfH/vA/TlesXu0wmzYpw1PD58dXIT7xVghOHQ4Vnd8f+oXP1IqWnHrljwks="
       }
       tools={[infraCommandTool]}
       components={components}

@@ -38,50 +38,32 @@ export function MetricsPanel({
   available = true,
   error,
 }: MetricsPanelProps) {
-  // Handle metrics unavailable case
   if (!available || error) {
     return (
-      <div className="bg-white border border-neutral-200 rounded-xl p-6">
+      <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Activity className="w-5 h-5 text-neutral-700" />
+          <Activity className="w-5 h-5 text-zinc-400" strokeWidth={2} />
           <div>
-            <h3 className="text-lg font-semibold text-neutral-900">
-              Resource Metrics
-            </h3>
-            <p className="text-sm text-neutral-600 font-mono">
+            <h3 className="text-lg font-medium text-white">Resource Metrics</h3>
+            <p className="text-sm text-zinc-400 font-mono font-light">
               {podName} • {namespace}
             </p>
           </div>
         </div>
 
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle
+              className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5"
+              strokeWidth={2}
+            />
             <div>
-              <p className="text-sm font-medium text-yellow-900">
+              <p className="text-sm font-medium text-amber-300">
                 Metrics Unavailable
               </p>
-              <p className="text-sm text-yellow-700 mt-1">
+              <p className="text-sm text-amber-200 mt-1 font-light">
                 {error || "Metrics Server is not installed or unavailable"}
               </p>
-              <details className="mt-3">
-                <summary className="text-xs text-yellow-800 cursor-pointer hover:text-yellow-900">
-                  How to fix this
-                </summary>
-                <div className="mt-2 text-xs text-yellow-700 space-y-1">
-                  <p className="font-semibold">Install Metrics Server:</p>
-                  <p className="font-mono bg-yellow-100 p-2 rounded">
-                    kubectl apply -f
-                    https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-                  </p>
-                  <p className="mt-2">
-                    Or for Minikube:{" "}
-                    <code className="bg-yellow-100 px-1 rounded">
-                      minikube addons enable metrics-server
-                    </code>
-                  </p>
-                </div>
-              </details>
             </div>
           </div>
         </div>
@@ -89,47 +71,48 @@ export function MetricsPanel({
     );
   }
 
-  // Calculate severity for restarts
   const restartSeverity =
     restartCount === 0 ? "ok" : restartCount < 5 ? "warning" : "critical";
 
-  const cpuUsagePercent = cpu?.usagePercent || 0;
-  const memoryUsagePercent = memory?.usagePercent || 0;
+  const cpuUsagePercent = cpu?.usagePercent ?? 0;
+  const memoryUsagePercent = memory?.usagePercent ?? 0;
+
+  const formatPercent = (percent: number): string => {
+    if (percent === 0) return "0%";
+    if (percent < 0.01) return "<0.01%";
+    if (percent < 1) return percent.toFixed(2) + "%";
+    if (percent < 10) return percent.toFixed(1) + "%";
+    return Math.round(percent) + "%";
+  };
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl p-6">
-      {/* Header */}
+    <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-6">
       <div className="flex items-center gap-3 mb-6">
-        <Activity className="w-5 h-5 text-neutral-700" />
+        <Activity className="w-5 h-5 text-zinc-400" strokeWidth={2} />
         <div>
-          <h3 className="text-lg font-semibold text-neutral-900">
-            Resource Metrics
-          </h3>
-          <p className="text-sm text-neutral-600 font-mono">
+          <h3 className="text-lg font-medium text-white">Resource Metrics</h3>
+          <p className="text-sm text-zinc-400 font-mono font-light">
             {podName} • {namespace}
           </p>
           <StatusBadge status={status} />
         </div>
       </div>
 
-      {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* CPU Metric */}
         <MetricCard
-          icon={<Activity className="w-5 h-5" />}
+          icon={<Activity className="w-5 h-5" strokeWidth={2} />}
           label="CPU"
-          value={cpuUsagePercent > 0 ? `${cpuUsagePercent}%` : "N/A"}
+          value={formatPercent(cpuUsagePercent)}
           subValue={cpu?.usage || "0m"}
           detail={`${cpu?.cores || 0} cores`}
           percent={cpuUsagePercent}
           color={getCpuColor(cpuUsagePercent)}
         />
 
-        {/* Memory Metric */}
         <MetricCard
-          icon={<HardDrive className="w-5 h-5" />}
+          icon={<HardDrive className="w-5 h-5" strokeWidth={2} />}
           label="Memory"
-          value={memoryUsagePercent > 0 ? `${memoryUsagePercent}%` : "N/A"}
+          value={formatPercent(memoryUsagePercent)}
           subValue={memory?.usage || "0Mi"}
           detail={formatBytes(memory?.bytes || 0)}
           percent={memoryUsagePercent}
@@ -137,30 +120,27 @@ export function MetricsPanel({
         />
       </div>
 
-      {/* Restarts */}
-      <div className="mt-4 pt-4 border-t border-neutral-200">
+      <div className="mt-4 pt-4 border-t border-zinc-800/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-neutral-600" />
-            <span className="text-sm font-medium text-neutral-700">
-              Restarts
-            </span>
+            <RefreshCw className="w-4 h-4 text-zinc-400" strokeWidth={2} />
+            <span className="text-sm font-medium text-zinc-300">Restarts</span>
           </div>
           <div className="flex items-center gap-2">
             <span
-              className={`text-lg font-semibold ${getRestartColor(restartSeverity)}`}
+              className={`text-lg font-medium ${getRestartColor(restartSeverity)}`}
             >
               {restartCount}
             </span>
             <span
-              className={`text-xs px-2 py-1 rounded ${getRestartBadgeColor(restartSeverity)}`}
+              className={`text-xs px-2 py-1 rounded-lg ${getRestartBadgeColor(restartSeverity)}`}
             >
               {restartSeverity}
             </span>
           </div>
         </div>
         {restartCount > 0 && (
-          <p className="text-xs text-neutral-600 mt-2">
+          <p className="text-xs text-zinc-500 mt-2 font-light">
             {restartCount >= 5
               ? "High restart count may indicate instability"
               : `${restartCount} restart${restartCount > 1 ? "s" : ""} detected`}
@@ -173,18 +153,18 @@ export function MetricsPanel({
 
 function StatusBadge({ status }: { status: string }) {
   const statusColors: Record<string, string> = {
-    Running: "bg-green-100 text-green-800",
-    Pending: "bg-yellow-100 text-yellow-800",
-    Failed: "bg-red-100 text-red-800",
-    CrashLoopBackOff: "bg-red-100 text-red-800",
-    Unknown: "bg-neutral-100 text-neutral-800",
+    Running: "bg-green-500/10 text-green-400 border-green-500/20",
+    Pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    Failed: "bg-red-500/10 text-red-400 border-red-500/20",
+    CrashLoopBackOff: "bg-red-500/10 text-red-400 border-red-500/20",
+    Unknown: "bg-zinc-800/50 text-zinc-400 border-zinc-700/50",
   };
 
   const colorClass = statusColors[status] || statusColors.Unknown;
 
   return (
     <span
-      className={`inline-block text-xs px-2 py-1 rounded mt-1 ${colorClass}`}
+      className={`inline-block text-xs px-2 py-1 rounded border mt-1 ${colorClass}`}
     >
       {status}
     </span>
@@ -209,70 +189,72 @@ function MetricCard({
   color: string;
 }) {
   return (
-    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
+    <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
         <div className={color}>{icon}</div>
-        <span className="text-sm font-medium text-neutral-700">{label}</span>
+        <span className="text-sm font-medium text-zinc-300">{label}</span>
       </div>
 
       <div className="space-y-1">
-        <div className="text-2xl font-bold text-neutral-900">{value}</div>
-        <div className="text-sm font-mono text-neutral-600">{subValue}</div>
-        <div className="text-xs text-neutral-500">{detail}</div>
+        <div className="text-2xl font-medium text-white">{value}</div>
+        <div className="text-sm font-mono text-zinc-400 font-light">
+          {subValue}
+        </div>
+        <div className="text-xs text-zinc-500 font-light">{detail}</div>
       </div>
 
-      {/* Progress bar */}
-      {percent > 0 && (
-        <div className="mt-3">
-          <div className="w-full bg-neutral-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(percent)}`}
-              style={{ width: `${Math.min(percent, 100)}%` }}
-            />
-          </div>
+      <div className="mt-3">
+        <div className="w-full bg-zinc-700/50 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(percent)}`}
+            style={{
+              width: `${Math.max(0.5, Math.min(percent, 100))}%`,
+              minWidth: percent > 0 ? "2px" : "0px",
+            }}
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 function getCpuColor(percent: number): string {
-  if (percent >= 80) return "text-red-600";
-  if (percent >= 60) return "text-yellow-600";
-  return "text-green-600";
+  if (percent >= 80) return "text-red-400";
+  if (percent >= 60) return "text-amber-400";
+  return "text-green-400";
 }
 
 function getMemoryColor(percent: number): string {
-  if (percent >= 85) return "text-red-600";
-  if (percent >= 70) return "text-yellow-600";
-  return "text-blue-600";
+  if (percent >= 85) return "text-red-400";
+  if (percent >= 70) return "text-amber-400";
+  return "text-blue-400";
 }
 
 function getProgressBarColor(percent: number): string {
   if (percent >= 80) return "bg-red-500";
-  if (percent >= 60) return "bg-yellow-500";
+  if (percent >= 60) return "bg-amber-500";
   return "bg-green-500";
 }
 
 function getRestartColor(severity: string): string {
   switch (severity) {
     case "critical":
-      return "text-red-600";
+      return "text-red-400";
     case "warning":
-      return "text-yellow-600";
+      return "text-amber-400";
     default:
-      return "text-green-600";
+      return "text-green-400";
   }
 }
 
 function getRestartBadgeColor(severity: string): string {
   switch (severity) {
     case "critical":
-      return "bg-red-100 text-red-800";
+      return "bg-red-500/10 text-red-400 border border-red-500/20";
     case "warning":
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
     default:
-      return "bg-green-100 text-green-800";
+      return "bg-green-500/10 text-green-400 border border-green-500/20";
   }
 }
 

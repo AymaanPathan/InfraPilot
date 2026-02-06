@@ -48,7 +48,7 @@ export function ResourceUsageChart(
     switch (type) {
       case "cpu":
         return {
-          bg: "bg-amber-500/10",
+          bg: "bg-amber-500/100/10",
           text: "text-amber-400",
           bar: "from-amber-500 to-orange-500",
         };
@@ -60,20 +60,20 @@ export function ResourceUsageChart(
         };
       case "storage":
         return {
-          bg: "bg-purple-500/10",
+          bg: "bg-purple-500/100/10",
           text: "text-purple-400",
           bar: "from-purple-500 to-pink-500",
         };
       case "network":
         return {
-          bg: "bg-green-500/10",
+          bg: "bg-green-500/100/10",
           text: "text-green-400",
           bar: "from-green-500 to-emerald-500",
         };
       default:
         return {
-          bg: "bg-slate-500/10",
-          text: "text-slate-400",
+          bg: "bg-zinc-500/10",
+          text: "text-zinc-400",
           bar: "from-slate-500 to-gray-500",
         };
     }
@@ -86,7 +86,7 @@ export function ResourceUsageChart(
       case "down":
         return <TrendingDown className="w-4 h-4 text-green-400" />;
       default:
-        return <Minus className="w-4 h-4 text-slate-400" />;
+        return <Minus className="w-4 h-4 text-zinc-400" />;
     }
   };
 
@@ -94,15 +94,17 @@ export function ResourceUsageChart(
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-xl font-bold text-white mb-1">Resource Usage</h3>
-          <p className="text-sm text-slate-400">
+          <h3 className="text-xl font-medium text-white mb-1">
+            Resource Usage
+          </h3>
+          <p className="text-sm text-zinc-400">
             {props.namespace
               ? `Namespace: ${props.namespace}`
               : "Cluster-wide metrics"}
           </p>
         </div>
         {props.timestamp && (
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-zinc-500">
             Last updated: {new Date(props.timestamp).toLocaleTimeString()}
           </div>
         )}
@@ -118,7 +120,7 @@ export function ResourceUsageChart(
           return (
             <div
               key={index}
-              className="bg-slate-900/50 backdrop-blur-sm border border-slate-800/50 rounded-xl p-6 hover:border-slate-700 transition-all duration-300 group"
+              className="bg-zinc-900/50 backdrop-blur-sm backdrop-blur-sm border border-zinc-800/50 rounded-xl p-6 hover:border-zinc-700 transition-all duration-300 group"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex items-center justify-between mb-4">
@@ -130,7 +132,7 @@ export function ResourceUsageChart(
                     <div className="text-sm font-medium text-white">
                       {resource.name}
                     </div>
-                    <div className="text-xs text-slate-400 capitalize">
+                    <div className="text-xs text-zinc-400 capitalize">
                       {resource.type} usage
                     </div>
                   </div>
@@ -138,11 +140,11 @@ export function ResourceUsageChart(
                 <div className="flex items-center gap-4">
                   {resource.trend && getTrendIcon(resource.trend)}
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-white">
+                    <div className="text-2xl font-medium text-white">
                       {resource.current}
                       {resource.unit}
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-xs text-zinc-400">
                       of {resource.limit}
                       {resource.unit}
                     </div>
@@ -152,26 +154,26 @@ export function ResourceUsageChart(
 
               {/* Usage Bar */}
               <div className="relative">
-                <div className="flex justify-between text-xs text-slate-400 mb-2">
+                <div className="flex justify-between text-xs text-zinc-400 mb-2">
                   <span>{percentage.toFixed(1)}% used</span>
                   <span>
                     {isHigh ? "⚠️ High" : isMedium ? "⚡ Medium" : "✓ Normal"}
                   </span>
                 </div>
-                <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden">
+                <div className="relative h-3 bg-zinc-800 rounded-full overflow-hidden">
                   <div
                     className={`absolute top-0 left-0 h-full bg-gradient-to-r ${colors.bar} transition-all duration-1000 ease-out group-hover:brightness-110`}
                     style={{ width: `${Math.min(percentage, 100)}%` }}
                   />
                   {isHigh && (
-                    <div className="absolute top-0 right-0 h-full w-1 bg-red-500 animate-pulse" />
+                    <div className="absolute top-0 right-0 h-full w-1 bg-red-500/100 animate-pulse" />
                   )}
                 </div>
 
                 {/* Threshold Markers */}
                 <div className="relative h-2 mt-1">
                   <div className="absolute left-[60%] top-0 w-px h-2 bg-yellow-500/30" />
-                  <div className="absolute left-[80%] top-0 w-px h-2 bg-red-500/30" />
+                  <div className="absolute left-[80%] top-0 w-px h-2 bg-red-500/100/30" />
                 </div>
               </div>
             </div>
@@ -180,7 +182,7 @@ export function ResourceUsageChart(
       </div>
 
       {props?.resources?.length === 0 && (
-        <div className="text-center py-12 text-slate-400">
+        <div className="text-center py-12 text-zinc-400">
           No resource usage data available
         </div>
       )}

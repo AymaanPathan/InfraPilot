@@ -43,15 +43,15 @@ export function PodHealthMonitor(
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Running":
-        return "text-green-600 bg-green-50";
+        return "text-green-400 bg-green-500/10";
       case "Pending":
-        return "text-amber-600 bg-amber-50";
+        return "text-amber-400 bg-amber-500/10";
       case "Failed":
-        return "text-red-600 bg-red-50";
+        return "text-red-400 bg-red-500/10";
       case "CrashLoopBackOff":
         return "text-orange-600 bg-orange-50";
       default:
-        return "text-neutral-600 bg-neutral-100";
+        return "text-zinc-400 font-light bg-zinc-800/50";
     }
   };
 
@@ -99,37 +99,37 @@ export function PodHealthMonitor(
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="w-4 h-4 text-blue-600" />
-            <span className="text-xs text-neutral-600">Total Pods</span>
+            <span className="text-xs text-zinc-400 font-light">Total Pods</span>
           </div>
-          <div className="text-3xl font-bold text-neutral-900">
-            {stats.total}
-          </div>
+          <div className="text-3xl font-medium text-white">{stats.total}</div>
         </div>
-        <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-4 h-4 text-green-600" />
-            <span className="text-xs text-neutral-600">Running</span>
+            <CheckCircle2 className="w-4 h-4 text-green-400" />
+            <span className="text-xs text-zinc-400 font-light">Running</span>
           </div>
-          <div className="text-3xl font-bold text-green-600">
+          <div className="text-3xl font-medium text-green-400">
             {stats.running}
           </div>
         </div>
-        <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-4 h-4 text-red-600" />
-            <span className="text-xs text-neutral-600">Failed</span>
+            <AlertCircle className="w-4 h-4 text-red-400" />
+            <span className="text-xs text-zinc-400 font-light">Failed</span>
           </div>
-          <div className="text-3xl font-bold text-red-600">{stats.failed}</div>
+          <div className="text-3xl font-medium text-red-400">
+            {stats.failed}
+          </div>
         </div>
-        <div className="bg-white border border-neutral-200 rounded-xl p-4">
+        <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-amber-600" />
-            <span className="text-xs text-neutral-600">Pending</span>
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="text-xs text-zinc-400 font-light">Pending</span>
           </div>
-          <div className="text-3xl font-bold text-amber-600">
+          <div className="text-3xl font-medium text-amber-400">
             {stats.pending}
           </div>
         </div>
@@ -144,7 +144,7 @@ export function PodHealthMonitor(
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 filter === f
                   ? "bg-neutral-900 text-white shadow-sm"
-                  : "bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200"
+                  : "bg-zinc-900/50 backdrop-blur-sm text-zinc-400 font-light hover:bg-zinc-800/50 border border-zinc-800/50"
               }`}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -161,8 +161,8 @@ export function PodHealthMonitor(
           return (
             <div
               key={index}
-              className={`bg-white border rounded-xl p-5 transition-all duration-200 hover:shadow-sm ${
-                isUnhealthy ? "border-red-200" : "border-neutral-200"
+              className={`bg-zinc-900/50 backdrop-blur-sm border rounded-xl p-5 transition-all duration-200 hover:border-zinc-700/50 ${
+                isUnhealthy ? "border-red-200" : "border-zinc-800/50"
               }`}
             >
               <div className="flex items-start justify-between mb-4">
@@ -174,7 +174,7 @@ export function PodHealthMonitor(
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
-                      <h4 className="text-base font-semibold text-neutral-900 truncate">
+                      <h4 className="text-base font-medium text-white truncate">
                         {pod.name}
                       </h4>
                       {pod.restarts > 0 && (
@@ -183,7 +183,7 @@ export function PodHealthMonitor(
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-neutral-600">
+                    <div className="flex items-center gap-3 text-sm text-zinc-400 font-light">
                       <span>ns/{pod.namespace}</span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
@@ -202,7 +202,7 @@ export function PodHealthMonitor(
 
                 <div className="text-right ml-4">
                   <div
-                    className={`text-2xl font-bold ${healthScore >= 70 ? "text-green-600" : "text-red-600"}`}
+                    className={`text-2xl font-medium ${healthScore >= 70 ? "text-green-400" : "text-red-400"}`}
                   >
                     {healthScore}
                   </div>
@@ -212,15 +212,17 @@ export function PodHealthMonitor(
 
               {(pod.cpuUsage !== undefined ||
                 pod.memoryUsage !== undefined) && (
-                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-neutral-200">
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-zinc-800/50">
                   {pod.cpuUsage !== undefined && (
                     <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-amber-600" />
-                      <span className="text-sm text-neutral-600">CPU:</span>
-                      <span className="text-sm font-medium text-neutral-900">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      <span className="text-sm text-zinc-400 font-light">
+                        CPU:
+                      </span>
+                      <span className="text-sm font-medium text-white">
                         {pod.cpuUsage}%
                       </span>
-                      <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden ml-2">
+                      <div className="flex-1 h-1.5 bg-zinc-800/50 rounded-full overflow-hidden ml-2">
                         <div
                           className="h-full bg-amber-600"
                           style={{ width: `${Math.min(pod.cpuUsage, 100)}%` }}
@@ -231,11 +233,13 @@ export function PodHealthMonitor(
                   {pod.memoryUsage !== undefined && (
                     <div className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-cyan-600" />
-                      <span className="text-sm text-neutral-600">Memory:</span>
-                      <span className="text-sm font-medium text-neutral-900">
+                      <span className="text-sm text-zinc-400 font-light">
+                        Memory:
+                      </span>
+                      <span className="text-sm font-medium text-white">
                         {pod.memoryUsage}%
                       </span>
-                      <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden ml-2">
+                      <div className="flex-1 h-1.5 bg-zinc-800/50 rounded-full overflow-hidden ml-2">
                         <div
                           className="h-full bg-cyan-600"
                           style={{
@@ -255,7 +259,7 @@ export function PodHealthMonitor(
       {filteredPods?.length === 0 && (
         <div className="text-center py-12">
           <Activity className="w-12 h-12 text-neutral-400 mx-auto mb-3" />
-          <div className="text-neutral-600">
+          <div className="text-zinc-400 font-light">
             No pods found matching filter: {filter}
           </div>
         </div>

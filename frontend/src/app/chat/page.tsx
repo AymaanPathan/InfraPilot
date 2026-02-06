@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTamboThread, useTamboThreadInput } from "@tambo-ai/react";
-import { MessageCircle, Send, Brain, Loader2 } from "lucide-react";
+import { MessageCircle, Send, Brain, Loader2, Sparkles } from "lucide-react";
 import { ExplanationDisplay } from "@/components/container/Explanationcomponents";
 import { logger } from "@/components/DevConsole";
 
@@ -16,7 +16,6 @@ export default function ChatPage() {
     if (thread?.messages?.length) {
       const lastMessage = thread.messages.at(-1);
 
-      // Log to DevConsole only - not displayed in chat
       logger.group("TAMBO MESSAGE DEBUG");
       logger.debug("tambo", `Message role: ${lastMessage?.role}`);
       logger.debug("tambo", `Message ID: ${lastMessage?.id}`);
@@ -113,16 +112,19 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col">
+    <div className="min-h-screen bg-black flex flex-col">
+      {/* Subtle gradient overlay */}
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900/20 via-black to-black pointer-events-none" />
+
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="relative flex-1 overflow-hidden flex flex-col">
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <div className="max-w-3xl mx-auto px-4 py-12 md:px-6">
             {messages.length === 0 ? (
               <EmptyState onExampleClick={setInputValue} />
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {messages.map((message: any, index: number) => (
                   <MessageBubble
                     key={message.id || index}
@@ -151,7 +153,7 @@ export default function ChatPage() {
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateY(8px);
           }
           to {
             opacity: 1;
@@ -160,13 +162,13 @@ export default function ChatPage() {
         }
 
         .animate-fadeIn {
-          animation: fadeIn 0.4s ease-out;
+          animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         @keyframes slideUp {
           from {
             opacity: 0;
-            transform: translateY(20px);
+            transform: translateY(12px);
           }
           to {
             opacity: 1;
@@ -175,11 +177,31 @@ export default function ChatPage() {
         }
 
         .animate-slideUp {
-          animation: slideUp 0.5s ease-out;
+          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes shimmer {
+          0% {
+            background-position: -1000px 0;
+          }
+          100% {
+            background-position: 1000px 0;
+          }
+        }
+
+        .animate-shimmer {
+          animation: shimmer 2s infinite linear;
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.03) 50%,
+            transparent 100%
+          );
+          background-size: 1000px 100%;
         }
 
         .scrollbar-thin::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-track {
@@ -187,12 +209,12 @@ export default function ChatPage() {
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb {
-          background: #d4d4d4;
-          border-radius: 3px;
+          background: #27272a;
+          border-radius: 2px;
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background: #a3a3a3;
+          background: #3f3f46;
         }
       `}</style>
     </div>
@@ -205,25 +227,45 @@ function EmptyState({
   onExampleClick: (text: string) => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] text-center animate-fadeIn">
-      <div className="mb-8">
-        <div className="bg-neutral-100 p-6 rounded-2xl">
-          <MessageCircle className="w-12 h-12 text-neutral-700" />
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)] text-center animate-fadeIn">
+      <div className="mb-10">
+        <div className="relative">
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full" />
+          <div className="relative bg-zinc-900/50 p-5 rounded-2xl border border-zinc-800/50 backdrop-blur-sm">
+            <MessageCircle className="w-10 h-10 text-white" strokeWidth={1.5} />
+          </div>
         </div>
       </div>
 
-      <h2 className="text-3xl font-semibold mb-3 text-neutral-900">
-        Welcome to your Kubernetes Assistant
-      </h2>
+      <h1 className="text-4xl md:text-5xl font-medium mb-4 text-white tracking-tight">
+        Kubernetes Assistant
+      </h1>
 
-      <p className="text-neutral-600 mb-12 max-w-2xl text-base leading-relaxed">
-        Ask me anything about your cluster. I can monitor resources, view logs,
-        check health, analyze metrics,{" "}
-        <span className="font-medium text-neutral-900">
-          and explain what's wrong
-        </span>{" "}
-        using AI.
+      <p className="text-zinc-400 mb-16 max-w-md text-base md:text-lg leading-relaxed font-light">
+        Monitor resources, analyze metrics, view logs.
+        <br />
+        <span className="text-white/90">AI-powered cluster insights.</span>
       </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
+        {[
+          "Show cluster overview",
+          "Check pod health status",
+          "Analyze resource usage",
+          "View recent error logs",
+        ].map((example, i) => (
+          <button
+            key={i}
+            onClick={() => onExampleClick(example)}
+            className="group px-5 py-3.5 bg-zinc-900/30 hover:bg-zinc-900/60 border border-zinc-800/50 hover:border-zinc-700/50 rounded-xl text-left transition-all duration-300 hover:scale-[1.02]"
+          >
+            <span className="text-sm text-zinc-300 group-hover:text-white transition-colors duration-300">
+              {example}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -231,12 +273,10 @@ function EmptyState({
 function isInternalData(text: string): boolean {
   const trimmed = text.trim();
 
-  // Check if it's JSON with componentName
   if (trimmed.startsWith("{") && trimmed.includes("componentName")) {
     return true;
   }
 
-  // Check if it's stringified JSON
   if (trimmed.startsWith('{"componentName"')) {
     return true;
   }
@@ -253,7 +293,6 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
 
-  // Extract explanation from tool_result content
   const explanation = message.content?.find(
     (c: any) => c.type === "tool_result" && c.content?.explanation,
   )?.content?.explanation;
@@ -262,19 +301,13 @@ function MessageBubble({
     (c: any) => c.type === "tool_result" && c.content?.autoExplained,
   )?.content?.autoExplained;
 
-  // Get only human-readable text content (filter out JSON and tool results)
-  // IMPORTANT: No logger calls here - this runs during render
   const textContent = Array.isArray(message.content)
     ? message.content
         .filter((item: any) => {
-          // Only include text type
           if (item.type !== "text") return false;
-
-          // Filter out JSON-like content (no logging here!)
           if (isInternalData(item.text)) {
             return false;
           }
-
           return true;
         })
         .map((item: any) => item.text)
@@ -285,17 +318,20 @@ function MessageBubble({
       className={`flex ${isUser ? "justify-end" : "justify-start"} animate-slideUp`}
     >
       <div
-        className={`max-w-4xl ${
+        className={`max-w-2xl ${
           isUser
-            ? "bg-neutral-900 text-white"
-            : "bg-white  text-neutral-900 w-full"
-        } rounded-xl px-6 py-4 transition-all duration-200`}
+            ? "bg-white text-black"
+            : "bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 text-white w-full"
+        } rounded-2xl px-5 py-4 transition-all duration-300 hover:shadow-lg ${
+          isUser ? "hover:shadow-white/10" : "hover:shadow-black/50"
+        }`}
       >
-        {/* Render ONLY clean text content */}
         {textContent.map((text: string, i: number) => (
           <p
             key={i}
-            className={`text-sm whitespace-pre-wrap leading-relaxed ${isUser ? "text-white" : "text-neutral-700"}`}
+            className={`text-[15px] whitespace-pre-wrap leading-relaxed font-light ${
+              isUser ? "text-black" : "text-zinc-100"
+            }`}
           >
             {text}
           </p>
@@ -303,26 +339,27 @@ function MessageBubble({
 
         {message.renderedComponent && (
           <div
-            className={`${textContent.length > 0 ? "mt-4" : ""} animate-fadeIn`}
+            className={`${textContent.length > 0 ? "mt-5" : ""} animate-fadeIn`}
           >
             {message.renderedComponent}
           </div>
         )}
 
-        {/* Render AI explanation if available */}
         {explanation && !isUser && (
           <div className="mt-6 animate-fadeIn">
-            <div className="flex items-center gap-2 mb-3 text-sm text-neutral-600">
-              <Brain className="w-4 h-4" />
+            <div className="flex items-center gap-2 mb-3 text-sm text-zinc-400">
+              <div className="p-1 bg-zinc-800/50 rounded-md">
+                <Brain className="w-3.5 h-3.5" strokeWidth={2} />
+              </div>
               <span className="font-medium">
-                {autoExplained ? "AI Auto-Analysis" : "AI Explanation"}
+                {autoExplained ? "Auto-Analysis" : "AI Explanation"}
               </span>
             </div>
             <ExplanationDisplay
               explanation={explanation}
               type="info"
               showIcon={false}
-              className="bg-neutral-50 border-neutral-200"
+              className="bg-zinc-800/30 border-zinc-700/50"
             />
           </div>
         )}
@@ -333,10 +370,13 @@ function MessageBubble({
 
 function LoadingIndicator() {
   return (
-    <div className="flex items-center gap-3 text-neutral-600 px-6 py-4 animate-slideUp">
-      <Loader2 className="w-5 h-5 animate-spin text-neutral-600" />
-      <div className="flex gap-1">
-        <span className="text-sm">Analyzing cluster</span>
+    <div className="flex items-center gap-3 text-zinc-400 px-5 py-4 animate-slideUp">
+      <div className="relative">
+        <Loader2 className="w-5 h-5 animate-spin text-white" strokeWidth={2} />
+        <div className="absolute inset-0 bg-white/20 blur-md animate-pulse" />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-light">Analyzing cluster</span>
         <span className="animate-pulse">.</span>
         <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>
           .
@@ -372,14 +412,17 @@ function ChatInput({
   };
 
   return (
-    <div className="border-t border-neutral-200 bg-white/80 backdrop-blur-xl sticky bottom-0 z-10">
-      <div className="max-w-4xl mx-auto px-6 py-5">
+    <div className="relative border-t border-zinc-800/50 bg-black/80 backdrop-blur-xl sticky bottom-0 z-10">
+      {/* Subtle top glow */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-700/20 to-transparent" />
+
+      <div className="max-w-3xl mx-auto px-4 py-6 md:px-6">
         <form onSubmit={handleSubmit} className="relative">
           <div
-            className={`relative rounded-xl transition-all duration-200 ${
+            className={`relative rounded-xl transition-all duration-300 ${
               isFocused
-                ? "ring-2 ring-neutral-900 shadow-sm"
-                : "ring-1 ring-neutral-200"
+                ? "ring-1 ring-white/20 shadow-lg shadow-white/5"
+                : "ring-1 ring-zinc-800/50"
             }`}
           >
             <input
@@ -389,31 +432,34 @@ function ChatInput({
               onKeyPress={onKeyPress}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder="Ask about your cluster... (e.g., 'show cluster overview')"
-              className="w-full px-5 py-3.5 pr-14 bg-white rounded-xl text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all duration-200"
+              placeholder="Ask about your cluster..."
+              className="w-full px-5 py-4 pr-14 bg-zinc-900/50 backdrop-blur-sm rounded-xl text-white placeholder-zinc-500 focus:outline-none transition-all duration-300 font-light text-[15px]"
               disabled={isLoading}
               autoComplete="off"
             />
             <button
               type="submit"
               disabled={isLoading || !value.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 hover:scale-105 disabled:scale-100 group"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-white hover:bg-zinc-100 disabled:bg-zinc-800 disabled:cursor-not-allowed text-black disabled:text-zinc-600 rounded-lg transition-all duration-300 hover:scale-105 disabled:scale-100 group disabled:opacity-50"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
               ) : (
-                <Send className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
+                <Send
+                  className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                  strokeWidth={2}
+                />
               )}
             </button>
           </div>
         </form>
 
-        <p className="text-xs text-neutral-500 mt-3 text-center">
+        <p className="text-xs text-zinc-600 mt-4 text-center font-light">
           Press{" "}
-          <kbd className="px-2 py-1 bg-neutral-100 border border-neutral-200 rounded text-neutral-700 font-mono text-xs">
+          <kbd className="px-2 py-1 bg-zinc-900/50 border border-zinc-800/50 rounded text-zinc-400 font-mono text-[11px]">
             Enter
           </kbd>{" "}
-          to send • AI will auto-explain issues
+          to send
         </p>
       </div>
     </div>

@@ -7,10 +7,7 @@ import {
   StatusSummary,
   statusSummarySchema,
 } from "@/components/container/StatusSummary";
-import {
-  DeploymentsList,
-  deploymentsListSchema,
-} from "@/components/container/DeploymentsList";
+
 import {
   ServicesList,
   servicesListSchema,
@@ -279,12 +276,6 @@ export const components: TamboComponent[] = [
   // ============================================================================
   // WORKLOAD MANAGEMENT
   // ============================================================================
-  {
-    name: "DeploymentsList",
-    description: "Shows deployments with replica counts and health indicators",
-    component: DeploymentsList,
-    propsSchema: deploymentsListSchema,
-  },
 
   // ============================================================================
   // NETWORKING

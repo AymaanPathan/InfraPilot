@@ -87,9 +87,9 @@ export function MultiPanelView({
     <div className="space-y-6">
       {/* Error Summary */}
       {errorPanels.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <h3 className="font-medium text-amber-900 mb-2">
                 {errorPanels.length} item(s) could not be loaded
@@ -101,7 +101,7 @@ export function MultiPanelView({
                     <span className="font-mono">
                       {panel.podName || panel.id || `Panel ${panel.step}`}
                     </span>
-                    <span className="text-amber-600">
+                    <span className="text-amber-400">
                       - {panel.error || "Unknown error"}
                     </span>
                   </div>
@@ -127,12 +127,12 @@ export function MultiPanelView({
           ))}
         </div>
       ) : (
-        <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-8 text-center">
-          <XCircle className="w-12 h-12 text-neutral-400 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-neutral-900 mb-2">
+        <div className="bg-zinc-800/50 border border-zinc-800/50 rounded-lg p-8 text-center">
+          <XCircle className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-white mb-2">
             No data available
           </h3>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-zinc-400 font-light">
             All requested items failed to load. Check pod names and try again.
           </p>
         </div>
@@ -181,28 +181,28 @@ function PanelCard({
   });
 
   return (
-    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
+    <div className="bg-zinc-900/50 backdrop-blur-sm rounded-lg border border-zinc-800/50 shadow-sm overflow-hidden flex flex-col h-[600px]">
       {/* Panel Header */}
-      <div className="p-4 border-b border-neutral-200 bg-neutral-50 flex-shrink-0">
+      <div className="p-4 border-b border-zinc-800/50 bg-zinc-800/50 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {type === "logs" && <FileText className="w-5 h-5 text-blue-600" />}
+            {type === "logs" && <FileText className="w-5 h-5 text-blue-400" />}
             {type === "events" && (
-              <Activity className="w-5 h-5 text-purple-600" />
+              <Activity className="w-5 h-5 text-purple-400" />
             )}
             {type === "generic" && (
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-green-400" />
             )}
 
             <div>
-              <h3 className="font-semibold text-neutral-900 font-mono text-sm">
+              <h3 className="font-medium text-white font-mono text-sm">
                 {podName}
               </h3>
-              <p className="text-xs text-neutral-500">{namespace}</p>
+              <p className="text-xs text-zinc-500 font-light">{namespace}</p>
             </div>
           </div>
 
-          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+          <span className="px-2 py-1 bg-green-100 text-green-400 text-xs font-medium rounded">
             ✓ Loaded
           </span>
         </div>
@@ -228,7 +228,7 @@ function PanelCard({
 
         {type === "generic" && (
           <div className="p-4 overflow-auto h-full">
-            <pre className="text-xs text-neutral-700 whitespace-pre-wrap">
+            <pre className="text-xs text-zinc-300 whitespace-pre-wrap">
               {JSON.stringify(panel.data, null, 2)}
             </pre>
           </div>

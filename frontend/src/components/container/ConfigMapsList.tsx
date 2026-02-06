@@ -31,7 +31,7 @@ export function ConfigMapsList({ configMaps }: ConfigMapsListProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">
+        <h3 className="text-lg font-medium text-white">
           ConfigMaps ({configMaps.length})
         </h3>
       </div>
@@ -46,36 +46,34 @@ export function ConfigMapsList({ configMaps }: ConfigMapsListProps) {
           return (
             <div
               key={index}
-              className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden hover:bg-slate-800 transition-all duration-200"
+              className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-xl overflow-hidden hover:bg-zinc-800 transition-all duration-200"
             >
               {/* Header */}
               <div className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
-                    <div className="p-2 bg-slate-700/50 rounded-lg">
+                    <div className="p-2 bg-zinc-700/50 rounded-lg">
                       <FileText className="w-5 h-5 text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-mono text-sm font-semibold text-white truncate">
+                        <h4 className="font-mono text-sm font-medium text-white truncate">
                           {configMap.name}
                         </h4>
                         {configMap.namespace && (
-                          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded-md flex-shrink-0">
+                          <span className="px-2 py-0.5 bg-blue-500/100/20 text-blue-300 text-xs rounded-md flex-shrink-0">
                             {configMap.namespace}
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <div className="flex items-center gap-3 text-xs text-zinc-400">
                         <span className="flex items-center gap-1">
                           <Key className="w-3 h-3" />
                           {keyCount} key{keyCount !== 1 ? "s" : ""}
                         </span>
                         {configMap.age && (
-                          <span className="text-slate-500">
-                            {configMap.age}
-                          </span>
+                          <span className="text-zinc-500">{configMap.age}</span>
                         )}
                       </div>
                     </div>
@@ -84,10 +82,10 @@ export function ConfigMapsList({ configMaps }: ConfigMapsListProps) {
                   {(configMap.data || configMap.dataKeys) && (
                     <button
                       onClick={() => toggleExpand(index)}
-                      className="ml-2 p-2 hover:bg-slate-700/50 rounded-lg transition-colors flex-shrink-0"
+                      className="ml-2 p-2 hover:bg-zinc-700/50 rounded-lg transition-colors flex-shrink-0"
                     >
                       <Eye
-                        className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                        className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
                           isExpanded ? "rotate-180" : ""
                         }`}
                       />
@@ -101,13 +99,13 @@ export function ConfigMapsList({ configMaps }: ConfigMapsListProps) {
                     {configMap.dataKeys.slice(0, 3).map((key, kIndex) => (
                       <code
                         key={kIndex}
-                        className="px-2 py-0.5 bg-slate-900/50 text-slate-300 rounded text-xs font-mono"
+                        className="px-2 py-0.5 bg-zinc-900/50 backdrop-blur-sm text-zinc-300 rounded text-xs font-mono"
                       >
                         {key}
                       </code>
                     ))}
                     {configMap.dataKeys.length > 3 && (
-                      <span className="px-2 py-0.5 text-slate-500 text-xs">
+                      <span className="px-2 py-0.5 text-zinc-500 text-xs">
                         +{configMap.dataKeys.length - 3} more
                       </span>
                     )}
@@ -117,16 +115,16 @@ export function ConfigMapsList({ configMaps }: ConfigMapsListProps) {
 
               {/* Expanded Data View */}
               {isExpanded && configMap.data && (
-                <div className="border-t border-slate-700/50 bg-slate-900/30 p-4">
+                <div className="border-t border-zinc-800/50 bg-zinc-900/30 p-4">
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {Object.entries(configMap.data).map(
                       ([key, value], dIndex) => (
                         <div key={dIndex} className="space-y-1">
-                          <div className="text-xs font-semibold text-blue-400 font-mono">
+                          <div className="text-xs font-medium text-blue-400 font-mono">
                             {key}
                           </div>
-                          <pre className="text-xs text-slate-300 bg-slate-950/50 rounded-lg p-3 overflow-x-auto">
-                            {value}
+                          <pre className="text-xs text-zinc-300 bg-zinc-950/50 rounded-lg p-3 overflow-x-auto">
+                            {value as any}
                           </pre>
                         </div>
                       ),
@@ -140,7 +138,7 @@ export function ConfigMapsList({ configMaps }: ConfigMapsListProps) {
       </div>
 
       {configMaps.length === 0 && (
-        <div className="text-center py-8 text-slate-400">
+        <div className="text-center py-8 text-zinc-400">
           <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No ConfigMaps found</p>
         </div>

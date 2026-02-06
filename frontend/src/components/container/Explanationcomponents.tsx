@@ -9,6 +9,7 @@ import {
   Zap,
   TrendingUp,
   Clock,
+  Brain,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -29,46 +30,46 @@ export function ExplanationDisplay({
 }: ExplanationDisplayProps) {
   const config = {
     info: {
-      icon: <Info className="w-5 h-5" />,
-      bgColor: "bg-neutral-50",
-      borderColor: "border-neutral-200",
-      iconColor: "text-neutral-700",
-      titleColor: "text-neutral-900",
+      icon: <Info className="w-5 h-5" strokeWidth={2} />,
+      bgColor: "bg-zinc-900/50",
+      borderColor: "border-zinc-800/50",
+      iconColor: "text-zinc-400",
+      titleColor: "text-white",
     },
     warning: {
-      icon: <AlertTriangle className="w-5 h-5" />,
-      bgColor: "bg-amber-50",
-      borderColor: "border-amber-200",
-      iconColor: "text-amber-700",
-      titleColor: "text-amber-900",
+      icon: <AlertTriangle className="w-5 h-5" strokeWidth={2} />,
+      bgColor: "bg-amber-500/10",
+      borderColor: "border-amber-500/20",
+      iconColor: "text-amber-400",
+      titleColor: "text-amber-300",
     },
     error: {
-      icon: <XCircle className="w-5 h-5" />,
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200",
-      iconColor: "text-red-700",
-      titleColor: "text-red-900",
+      icon: <XCircle className="w-5 h-5" strokeWidth={2} />,
+      bgColor: "bg-red-500/10",
+      borderColor: "border-red-500/20",
+      iconColor: "text-red-400",
+      titleColor: "text-red-300",
     },
     success: {
-      icon: <CheckCircle className="w-5 h-5" />,
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
-      iconColor: "text-green-700",
-      titleColor: "text-green-900",
+      icon: <CheckCircle className="w-5 h-5" strokeWidth={2} />,
+      bgColor: "bg-green-500/10",
+      borderColor: "border-green-500/20",
+      iconColor: "text-green-400",
+      titleColor: "text-green-300",
     },
   };
 
   const {
     icon = null,
-    bgColor = "bg-neutral-50",
-    borderColor = "border-neutral-200",
-    iconColor = "text-neutral-700",
-    titleColor = "text-neutral-900",
+    bgColor = "bg-zinc-900/50",
+    borderColor = "border-zinc-800/50",
+    iconColor = "text-zinc-400",
+    titleColor = "text-white",
   } = config[type] || {};
 
   return (
     <div
-      className={`rounded-xl border ${borderColor} ${bgColor} p-6 ${className} animate-slideUp`}
+      className={`rounded-xl border backdrop-blur-sm ${borderColor} ${bgColor} p-6 ${className} animate-slideUp`}
     >
       {/* Header */}
       <div className="flex items-start gap-4 mb-4">
@@ -77,66 +78,66 @@ export function ExplanationDisplay({
         )}
         <div className="flex-1">
           {title && (
-            <h3 className={`text-lg font-semibold ${titleColor} mb-3`}>
+            <h3 className={`text-lg font-medium ${titleColor} mb-3`}>
               {title}
             </h3>
           )}
 
           {/* Markdown Content */}
-          <div className="prose prose-sm max-w-none prose-neutral">
+          <div className="prose prose-sm max-w-none prose-invert">
             <ReactMarkdown
               components={{
                 h1: ({ children }) => (
-                  <h1 className="text-2xl font-semibold text-neutral-900 mb-4 mt-6 first:mt-0">
+                  <h1 className="text-2xl font-medium text-white mb-4 mt-6 first:mt-0">
                     {children}
                   </h1>
                 ),
                 h2: ({ children }) => (
-                  <h2 className="text-xl font-semibold text-neutral-800 mb-3 mt-5 first:mt-0">
+                  <h2 className="text-xl font-medium text-zinc-200 mb-3 mt-5 first:mt-0">
                     {children}
                   </h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 className="text-lg font-semibold text-neutral-700 mb-2 mt-4 first:mt-0">
+                  <h3 className="text-lg font-medium text-zinc-300 mb-2 mt-4 first:mt-0">
                     {children}
                   </h3>
                 ),
                 p: ({ children }) => (
-                  <p className="text-neutral-700 leading-relaxed mb-3">
+                  <p className="text-zinc-300 leading-relaxed mb-3 font-light">
                     {children}
                   </p>
                 ),
                 ul: ({ children }) => (
-                  <ul className="list-disc list-inside space-y-1 mb-3 text-neutral-700">
+                  <ul className="list-disc list-inside space-y-1 mb-3 text-zinc-300">
                     {children}
                   </ul>
                 ),
                 ol: ({ children }) => (
-                  <ol className="list-decimal list-inside space-y-1 mb-3 text-neutral-700">
+                  <ol className="list-decimal list-inside space-y-1 mb-3 text-zinc-300">
                     {children}
                   </ol>
                 ),
-                li: ({ children }) => <li className="ml-4">{children}</li>,
+                li: ({ children }) => (
+                  <li className="ml-4 font-light">{children}</li>
+                ),
                 code: ({ inline, children }: any) =>
                   inline ? (
-                    <code className="bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded text-sm font-mono border border-neutral-200">
+                    <code className="bg-zinc-800 text-zinc-200 px-1.5 py-0.5 rounded text-sm font-mono border border-zinc-700">
                       {children}
                     </code>
                   ) : (
-                    <code className="block bg-neutral-100 text-neutral-800 p-3 rounded-lg text-sm font-mono overflow-x-auto mb-3 border border-neutral-200">
+                    <code className="block bg-zinc-800 text-zinc-200 p-3 rounded-lg text-sm font-mono overflow-x-auto mb-3 border border-zinc-700">
                       {children}
                     </code>
                   ),
                 strong: ({ children }) => (
-                  <strong className="font-semibold text-neutral-900">
-                    {children}
-                  </strong>
+                  <strong className="font-medium text-white">{children}</strong>
                 ),
                 em: ({ children }) => (
-                  <em className="italic text-neutral-600">{children}</em>
+                  <em className="italic text-zinc-400">{children}</em>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-neutral-300 pl-4 italic text-neutral-600 my-3">
+                  <blockquote className="border-l-4 border-zinc-700 pl-4 italic text-zinc-400 my-3">
                     {children}
                   </blockquote>
                 ),
@@ -185,25 +186,25 @@ export function TriageReport({ report, issues, summary }: TriageReportProps) {
           <MetricCard
             label="Total Pods"
             value={summary.total}
-            icon={<TrendingUp className="w-4 h-4" />}
+            icon={<TrendingUp className="w-4 h-4" strokeWidth={2} />}
             color="neutral"
           />
           <MetricCard
             label="Issues Found"
             value={summary.issuesFound}
-            icon={<AlertTriangle className="w-4 h-4" />}
+            icon={<AlertTriangle className="w-4 h-4" strokeWidth={2} />}
             color="amber"
           />
           <MetricCard
             label="Critical"
             value={summary.critical}
-            icon={<XCircle className="w-4 h-4" />}
+            icon={<XCircle className="w-4 h-4" strokeWidth={2} />}
             color="red"
           />
           <MetricCard
             label="Warnings"
             value={summary.warnings}
-            icon={<Info className="w-4 h-4" />}
+            icon={<Info className="w-4 h-4" strokeWidth={2} />}
             color="orange"
           />
         </div>
@@ -226,8 +227,8 @@ export function TriageReport({ report, issues, summary }: TriageReportProps) {
       {/* Issue Details */}
       {criticalIssues.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-red-900 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
+          <h3 className="text-lg font-medium text-red-300 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" strokeWidth={2} />
             Critical Issues Requiring Immediate Attention
           </h3>
           {criticalIssues.map((issue, idx) => (
@@ -238,15 +239,15 @@ export function TriageReport({ report, issues, summary }: TriageReportProps) {
 
       {warningIssues.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-amber-900 flex items-center gap-2">
-            <Info className="w-5 h-5" />
+          <h3 className="text-lg font-medium text-amber-300 flex items-center gap-2">
+            <Info className="w-5 h-5" strokeWidth={2} />
             Warnings to Investigate
           </h3>
           {warningIssues.slice(0, 5).map((issue, idx) => (
             <IssueCard key={idx} issue={issue} />
           ))}
           {warningIssues.length > 5 && (
-            <p className="text-sm text-neutral-600 ml-7">
+            <p className="text-sm text-zinc-500 ml-7 font-light">
               ... and {warningIssues.length - 5} more warnings
             </p>
           )}
@@ -268,20 +269,20 @@ function MetricCard({
   color: "neutral" | "amber" | "red" | "orange" | "green";
 }) {
   const colors = {
-    neutral: "bg-neutral-50 border-neutral-200 text-neutral-700",
-    amber: "bg-amber-50 border-amber-200 text-amber-700",
-    red: "bg-red-50 border-red-200 text-red-700",
-    orange: "bg-orange-50 border-orange-200 text-orange-700",
-    green: "bg-green-50 border-green-200 text-green-700",
+    neutral: "bg-zinc-800/50 border-zinc-700/50 text-zinc-400",
+    amber: "bg-amber-500/10 border-amber-500/20 text-amber-400",
+    red: "bg-red-500/10 border-red-500/20 text-red-400",
+    orange: "bg-orange-500/10 border-orange-500/20 text-orange-400",
+    green: "bg-green-500/10 border-green-500/20 text-green-400",
   };
 
   return (
     <div
-      className={`rounded-xl border ${colors[color]} p-4 hover:shadow-sm transition-all`}
+      className={`rounded-xl border backdrop-blur-sm ${colors[color]} p-4 hover:scale-105 transition-all duration-300`}
     >
       <div className="flex items-center gap-2 mb-1">{icon}</div>
-      <div className="text-2xl font-semibold text-neutral-900">{value}</div>
-      <div className="text-xs text-neutral-600">{label}</div>
+      <div className="text-2xl font-medium text-white">{value}</div>
+      <div className="text-xs text-zinc-400 font-light">{label}</div>
     </div>
   );
 }
@@ -289,22 +290,22 @@ function MetricCard({
 function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
   const severityConfig = {
     critical: {
-      icon: <XCircle className="w-4 h-4" />,
-      color: "text-red-700",
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200",
+      icon: <XCircle className="w-4 h-4" strokeWidth={2} />,
+      color: "text-red-400",
+      bgColor: "bg-red-500/10",
+      borderColor: "border-red-500/20",
     },
     warning: {
-      icon: <AlertTriangle className="w-4 h-4" />,
-      color: "text-amber-700",
-      bgColor: "bg-amber-50",
-      borderColor: "border-amber-200",
+      icon: <AlertTriangle className="w-4 h-4" strokeWidth={2} />,
+      color: "text-amber-400",
+      bgColor: "bg-amber-500/10",
+      borderColor: "border-amber-500/20",
     },
     info: {
-      icon: <Info className="w-4 h-4" />,
-      color: "text-neutral-700",
-      bgColor: "bg-neutral-50",
-      borderColor: "border-neutral-200",
+      icon: <Info className="w-4 h-4" strokeWidth={2} />,
+      color: "text-zinc-400",
+      bgColor: "bg-zinc-800/50",
+      borderColor: "border-zinc-700/50",
     },
   };
 
@@ -312,7 +313,7 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
 
   return (
     <div
-      className={`rounded-xl border ${config.borderColor} ${config.bgColor} p-4 hover:shadow-sm transition-all`}
+      className={`rounded-xl border backdrop-blur-sm ${config.borderColor} ${config.bgColor} p-4 hover:border-opacity-50 transition-all duration-300`}
     >
       <div className="flex items-start gap-3">
         <div className={`${config.color} flex-shrink-0 mt-0.5`}>
@@ -320,16 +321,14 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold text-neutral-900 truncate">
-              {issue.podName}
-            </h4>
-            <span className="text-xs text-neutral-500">
-              ({issue.namespace})
-            </span>
+            <h4 className="font-medium text-white truncate">{issue.podName}</h4>
+            <span className="text-xs text-zinc-500">({issue.namespace})</span>
           </div>
-          <p className="text-sm text-neutral-700 mb-2">{issue.description}</p>
+          <p className="text-sm text-zinc-300 mb-2 font-light">
+            {issue.description}
+          </p>
           {issue.metrics && (
-            <div className="flex items-center gap-4 text-xs text-neutral-600">
+            <div className="flex items-center gap-4 text-xs text-zinc-400">
               {issue.metrics.status && (
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3" />
@@ -358,18 +357,16 @@ function IssueCard({ issue }: { issue: TriageReportProps["issues"][0] }) {
 
 export function SmartSuggestions({ suggestions }: { suggestions: string[] }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-6">
+    <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/50 backdrop-blur-sm p-6">
       <div className="flex items-center gap-2 mb-4">
-        <Lightbulb className="w-5 h-5 text-neutral-700" />
-        <h3 className="text-lg font-semibold text-neutral-900">
-          Smart Suggestions
-        </h3>
+        <Lightbulb className="w-5 h-5 text-zinc-400" strokeWidth={2} />
+        <h3 className="text-lg font-medium text-white">Smart Suggestions</h3>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {suggestions.slice(0, 6).map((suggestion, idx) => (
           <button
             key={idx}
-            className="text-left px-4 py-3 rounded-lg bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-300 text-sm text-neutral-700 hover:text-neutral-900 transition-all"
+            className="text-left px-4 py-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-zinc-600/50 text-sm text-zinc-300 hover:text-white transition-all duration-300 font-light"
           >
             {suggestion}
           </button>
@@ -378,20 +375,3 @@ export function SmartSuggestions({ suggestions }: { suggestions: string[] }) {
     </div>
   );
 }
-
-<style jsx global>{`
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-slideUp {
-    animation: slideUp 0.4s ease-out;
-  }
-`}</style>;
