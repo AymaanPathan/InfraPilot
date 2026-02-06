@@ -223,8 +223,6 @@ Open [http://localhost:3000](http://localhost:3000) to see InfraPilot in action.
 
 ---
 
-## 🎥 Video Demo
-https://github.com/user-attachments/assets/2cb4aae7-d0ca-4a96-b059-7848389b8aa9
 
 
 ---
