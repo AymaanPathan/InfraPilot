@@ -12,7 +12,7 @@ export function TamboClientProvider({
   return (
     <TamboProvider
       apiKey={
-        "tambo_Zi7iEhSzcleFQGjJ4AZaG61t5qtVjH1Yq0p8EAGpgzVL1RA1KfH/vA/TlesXu0wmzYpw1PD58dXIT7xVghOHQ4Vnd8f+oXP1IqWnHrljwks="
+        process.env.NEXT_PUBLIC_TAMBO_API_KEY || "your-tambo-api-key"
       }
       tools={[infraCommandTool]}
       components={components}
