@@ -1,4 +1,4 @@
-# ✅ CLI → App Converter (Kubernetes Edition)
+# CLI → App Converter (Kubernetes Edition)
 
 <div align="center">
 
