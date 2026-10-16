@@ -35,8 +35,9 @@ export class KubernetesClient {
   private cache: Map<string, CacheEntry<any>> = new Map();
   private readonly CACHE_TTL = 5000; // 5 seconds cache TTL
 
-  // In-flight request deduplication
-  private inFlightRequests: Map<string, Promise<any>> = new Map();
+  // In-flight request deduplication: key -> promise of the request that is
+  // currently running. An entry exists only while its request is pending.
+  private inFlightRequests: Map<string, Promise<unknown>> = new Map();
 
   constructor(configPath?: string) {
     this.kubeConfig = new k8s.KubeConfig();
@@ -97,7 +98,12 @@ export class KubernetesClient {
   // ============================================
 
   /**
-   * Deduplicate concurrent identical requests
+   * Deduplicate concurrent identical requests.
+   *
+   * While a request for `key` is pending, every further call with the same
+   * key receives the same promise and `requestFn` is not invoked again.
+   * Results are never cached here: once the request settles, the next call
+   * runs `requestFn` again.
    */
   private async deduplicateRequest<T>(
     key: string,
@@ -118,7 +124,8 @@ export class KubernetesClient {
       const result = await promise;
       return result;
     } finally {
-      // Clean up after request completes
+      // The in-flight entry is cleared on both success and failure, so a
+      // rejected request is never kept and the next call starts fresh.
       this.inFlightRequests.delete(key);
     }
   }
